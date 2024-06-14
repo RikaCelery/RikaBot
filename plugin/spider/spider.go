@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	sqlite "github.com/FloatTech/sqlite"
@@ -73,6 +74,84 @@ func removeDuplicatesFile(slice []File) []File {
 	}
 
 	return result
+}
+
+var caches = map[string]bool{}
+
+func downloadImageFromURL(imageURL string) error {
+	if ok, _ := caches[imageURL]; ok {
+		return nil
+	}
+	// 发送HTTP请求下载图片
+	resp, err := http.Get(imageURL)
+	if err != nil {
+		return fmt.Errorf("Error downloading image: %v", err)
+	}
+	fmt.Printf("%v\n", resp.Header)
+	defer resp.Body.Close()
+
+	buf := make([]byte, 512)
+	resp.Body.Read(buf)
+
+	// 读取前几个字节以确定文件类型
+	fileExt, err := getFileTypeFromBytes(buf)
+	if err != nil {
+		return fmt.Errorf("error determining file type: %v", err)
+	}
+
+	// 创建一个 MD5 哈希对象
+	hasher := md5.New()
+
+	// 读取响应体并写入到哈希对象，同时保存到临时文件
+	tempFile, err := os.CreateTemp("tmp", "_downloaded_image_*"+fileExt)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	// 复制响应体到哈希对象和临时文件
+	multiWriter := io.MultiWriter(hasher, tempFile)
+	multiWriter.Write(buf)
+	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
+		return fmt.Errorf("failed to read image: %v", err)
+	}
+
+	// 计算文件的 MD5 哈希值
+	hash := hasher.Sum(nil)
+	md5Str := hex.EncodeToString(hash)
+
+	// 构建最终文件名
+	finalFileName := filepath.Join("tmp", fmt.Sprintf("%s%s", md5Str, fileExt))
+
+	// 将临时文件重命名为最终文件
+	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
+		return fmt.Errorf("failed to save file: %v", err)
+	}
+
+	fmt.Println("Image saved as:", finalFileName)
+	caches[imageURL] = true
+	return nil
+}
+
+// getFileTypeFromBytes 根据文件的前几个字节确定文件类型和扩展名
+func getFileTypeFromBytes(fileType []byte) (string, error) {
+	// 根据文件头部字节判断文件类型
+	contentType := http.DetectContentType(fileType)
+	fileExt := ""
+	switch contentType {
+	case "image/jpeg":
+		fileExt = ".jpg"
+	case "image/png":
+		fileExt = ".png"
+	case "image/gif":
+		fileExt = ".gif"
+	case "image/bmp":
+		fileExt = ".bmp"
+	default:
+		return "", fmt.Errorf("unsupported file type: %s, hex: %s", contentType, hex.Dump(fileType))
+	}
+
+	return fileExt, nil
 }
 
 func init() {
@@ -250,7 +329,7 @@ func init() {
 							var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40})")
 							allString = magnetRegexp.FindAllString(s, -1)
 							for _, s2 := range allString {
-								magnets = append(magnets, s2)
+								magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
 							}
 						} else if res.Get("type").String() == "ImageEntity" {
 							println(res.Get("ImageUrl").String())
@@ -269,10 +348,19 @@ func init() {
 
 						}
 					})
+			case "text":
+				continue
+			case "image":
+				url := result.Get("data.url").String()
+				err := downloadImageFromURL(url)
+				if err != nil {
+					logrus.Infoln(err.Error())
+					continue
+				}
 			default:
-				return
+				logrus.Infoln(msgType)
+				continue
 			}
-			//logrus.Infoln(msgType)
 		}
 		images = removeDuplicatesFile(images)
 		videos = removeDuplicatesFile(videos)
@@ -298,13 +386,13 @@ func init() {
 			Name: string(marshal),
 		})
 
-		if ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
+		if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
 			if len(info.Links)+len(info.Magnets)+len(info.Videos)+len(info.Images) != 0 {
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("查询到%d条链接,%d条🧲,%d条视频,%d条图片", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))))
+				//ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("省流:%d条链接,%d条🧲,%d条视频,%d条图片", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))))
 			}
 		}
 		if len(info.Magnets) != 0 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(strings.Join(info.Magnets, "\n")))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("省流:🧲\n"+strings.Join(info.Magnets, "\n")))
 		}
 		// download
 		if len(info.Links) == 0 {
@@ -329,7 +417,7 @@ func init() {
 			}
 		}
 	sendLinkEnd:
-		{
+		if len(info.Images) != 0 {
 			client := http.Client{}
 			var wg = sync.WaitGroup{}
 			var imgFiles []string
@@ -382,7 +470,6 @@ func init() {
 				panic(err)
 				return
 			}
-
 			_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
 			imgFileList.Close()
 			if err != nil {
@@ -397,8 +484,17 @@ func init() {
 			cmd.Stderr = os.Stderr
 			cmd.Start()
 			cmd.Wait()
-			os.Remove(imgFileListPath)
-			// not upload
+			err = os.Remove(imgFileListPath)
+			if err != nil {
+				println(err.Error())
+			}
+			// upload
+			if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
+				r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包()#%x.7z", md5Hash), "")
+				if r.RetCode != 0 {
+					logrus.Warn("returns", r.RetCode)
+				}
+			}
 		}
 		{
 			client := http.Client{}
@@ -412,7 +508,6 @@ func init() {
 					fname := path.Join("videotmp", video.Path)
 					if _, err := os.Stat(fname); err == nil {
 						logrus.Infoln("exist", video)
-
 						return
 
 					}
