@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	sqlite "github.com/FloatTech/sqlite"
+	"github.com/gabriel-vasile/mimetype"
+	"net/url"
+
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -29,6 +32,8 @@ import (
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 )
+
+var lastValidatedRKey = ""
 
 type row struct {
 	ID   int // pk
@@ -78,26 +83,52 @@ func removeDuplicatesFile(slice []File) []File {
 
 var caches = map[string]bool{}
 
-func downloadImageFromURL(imageURL string) error {
-	if ok, _ := caches[imageURL]; ok {
-		return nil
+func downloadImageFromURL(imageURL string, oc chan string) error {
+	var retryed = 0
+
+retry:
+	if retryed != 0 {
+		// 解析 URL
+		parsedURL, _ := url.Parse(imageURL)
+
+		// 获取查询参数
+		queryParams := parsedURL.Query()
+		queryParams.Set("rkey", lastValidatedRKey)
+		// 构造新的 URL
+		parsedURL.RawQuery = queryParams.Encode()
+		imageURL = parsedURL.String()
+		logrus.Infof("update image url %s", imageURL)
 	}
+	//if ok, _ := caches[imageURL]; ok {
+	//	return nil
+	//}
 	// 发送HTTP请求下载图片
 	resp, err := http.Get(imageURL)
 	if err != nil {
 		return fmt.Errorf("Error downloading image: %v", err)
 	}
-	fmt.Printf("%v\n", resp.Header)
+	//fmt.Printf("%v\n", resp.Header)
 	defer resp.Body.Close()
 
-	buf := make([]byte, 512)
-	resp.Body.Read(buf)
+	buf := make([]byte, 1024*1024)
+	l, _ := resp.Body.Read(buf)
 
 	// 读取前几个字节以确定文件类型
-	fileExt, err := getFileTypeFromBytes(buf)
+	fileExt, err := getFileTypeFromBytes(buf[:l])
 	if err != nil {
-		return fmt.Errorf("error determining file type: %v", err)
+		retryed++
+		if retryed == 3 {
+			return fmt.Errorf("error determining file type: %v", err)
+		}
+		goto retry
 	}
+
+	// 解析 URL
+	parsedURL, _ := url.Parse(imageURL)
+	// 获取查询参数
+	queryParams := parsedURL.Query()
+	// 获取 rkey 参数的值
+	lastValidatedRKey = queryParams.Get("rkey")
 
 	// 创建一个 MD5 哈希对象
 	hasher := md5.New()
@@ -111,7 +142,7 @@ func downloadImageFromURL(imageURL string) error {
 
 	// 复制响应体到哈希对象和临时文件
 	multiWriter := io.MultiWriter(hasher, tempFile)
-	multiWriter.Write(buf)
+	multiWriter.Write(buf[:l])
 	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
 		return fmt.Errorf("failed to read image: %v", err)
 	}
@@ -122,23 +153,82 @@ func downloadImageFromURL(imageURL string) error {
 
 	// 构建最终文件名
 	finalFileName := filepath.Join("tmp", fmt.Sprintf("%s%s", md5Str, fileExt))
-
+	tempFile.Close()
 	// 将临时文件重命名为最终文件
 	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
 		return fmt.Errorf("failed to save file: %v", err)
 	}
 
+	if oc != nil {
+		oc <- finalFileName
+	}
 	fmt.Println("Image saved as:", finalFileName)
 	caches[imageURL] = true
 	return nil
 }
 
+func downloadVideoFromURL(videoURL string, oc chan string) error {
+	// 发送HTTP请求下载图片
+	resp, err := http.Get(videoURL)
+	if err != nil {
+		return fmt.Errorf("Error downloading video: %v, url=%s", err, videoURL)
+	}
+	//fmt.Printf("%v\n", resp.Header)
+	defer resp.Body.Close()
+
+	buf := make([]byte, 1024*1024)
+	l, _ := resp.Body.Read(buf)
+
+	// 读取前几个字节以确定文件类型
+	fileExt, err := getFileTypeFromBytes(buf[:l])
+	if err != nil {
+		return fmt.Errorf("error determining file type: %v", err)
+	}
+
+	// 创建一个 MD5 哈希对象
+	hasher := md5.New()
+
+	// 读取响应体并写入到哈希对象，同时保存到临时文件
+	tempFile, err := os.CreateTemp("tmp", "_downloaded_video_*"+fileExt)
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
+
+	// 复制响应体到哈希对象和临时文件
+	multiWriter := io.MultiWriter(hasher, tempFile)
+	multiWriter.Write(buf[:l])
+	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
+		return fmt.Errorf("failed to write video: %v", err)
+	}
+
+	// 计算文件的 MD5 哈希值
+	hash := hasher.Sum(nil)
+	md5Str := hex.EncodeToString(hash)
+
+	// 构建最终文件名
+	finalFileName := filepath.Join("tmp", fmt.Sprintf("%s%s", md5Str, fileExt))
+	tempFile.Close()
+	// 将临时文件重命名为最终文件
+	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
+		return fmt.Errorf("failed to save file: %v", err)
+	}
+
+	if oc != nil {
+		oc <- finalFileName
+	}
+	fmt.Println("Video saved as:", finalFileName)
+	caches[videoURL] = true
+	return nil
+}
+
 // getFileTypeFromBytes 根据文件的前几个字节确定文件类型和扩展名
 func getFileTypeFromBytes(fileType []byte) (string, error) {
+	mime := mimetype.Detect(fileType)
 	// 根据文件头部字节判断文件类型
-	contentType := http.DetectContentType(fileType)
-	fileExt := ""
-	switch contentType {
+	//contentType := http.DetectContentType(fileType)
+	fileExt := mime.Extension()
+	switch mime.String() {
 	case "image/jpeg":
 		fileExt = ".jpg"
 	case "image/png":
@@ -147,8 +237,10 @@ func getFileTypeFromBytes(fileType []byte) (string, error) {
 		fileExt = ".gif"
 	case "image/bmp":
 		fileExt = ".bmp"
+	case "video/mp4":
+		fileExt = ".mp4"
 	default:
-		return "", fmt.Errorf("unsupported file type: %s, hex: %s", contentType, hex.Dump(fileType))
+		return "", fmt.Errorf("unsupported file type: %s", mime.String())
 	}
 
 	return fileExt, nil
@@ -195,7 +287,7 @@ func init() {
 			{
 				var base64ed []string
 				md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-				abs, _ := filepath.Abs(fmt.Sprintf("%x_links_txt", md5Hash))
+				abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
 				for _, link := range info.Links {
 					// avoid content audit
 					base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
@@ -326,7 +418,7 @@ func init() {
 							for _, s2 := range allString {
 								links = append(links, s2)
 							}
-							var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40})")
+							var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})")
 							allString = magnetRegexp.FindAllString(s, -1)
 							for _, s2 := range allString {
 								magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
@@ -351,12 +443,23 @@ func init() {
 			case "text":
 				continue
 			case "image":
-				url := result.Get("data.url").String()
-				err := downloadImageFromURL(url)
+				u := result.Get("data.url").String()
+				err := downloadImageFromURL(u, nil)
 				if err != nil {
-					logrus.Infoln(err.Error())
+					logrus.Errorln(err.Error())
 					continue
 				}
+			case "video":
+				u := result.Get("data.url").String()
+				err := downloadVideoFromURL(u, nil)
+				if err != nil {
+					logrus.Errorln(err.Error())
+					continue
+				}
+				continue
+			case "reply":
+			case "at":
+
 			default:
 				logrus.Infoln(msgType)
 				continue
@@ -366,6 +469,9 @@ func init() {
 		videos = removeDuplicatesFile(videos)
 		links = removeDuplicates(links)
 		magnets = removeDuplicates(magnets)
+		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
+			return
+		}
 		info := ForwardInfo{
 			Id:      int(ctx.Event.MessageID.(int64)),
 			Images:  images,
@@ -385,14 +491,16 @@ func init() {
 			ID:   info.Id,
 			Name: string(marshal),
 		})
-
-		if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
-			if len(info.Links)+len(info.Magnets)+len(info.Videos)+len(info.Images) != 0 {
-				//ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("省流:%d条链接,%d条🧲,%d条视频,%d条图片", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))))
-			}
+		var send = ""
+		if len(info.Links)+len(info.Magnets)+len(info.Videos)+len(info.Images) != 0 {
+			send = fmt.Sprintf("省流:%d条链接,%d条🧲,%d条视频,%d条图片\n", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))
 		}
 		if len(info.Magnets) != 0 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("省流:🧲\n"+strings.Join(info.Magnets, "\n")))
+			send += "🧲:\n" + strings.Join(info.Magnets, "\n")
+		}
+		logrus.Infof("ctx.Event.GroupID %d\n", ctx.Event.GroupID)
+		if len(send) > 0 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(send))
 		}
 		// download
 		if len(info.Links) == 0 {
@@ -401,7 +509,7 @@ func init() {
 		{
 			var base64ed []string
 			md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-			abs, _ := filepath.Abs(fmt.Sprintf("%x_links_txt", md5Hash))
+			abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
 			if _, err := os.Stat(abs); err != nil {
 				goto sendLinkEnd
 			}
@@ -417,51 +525,40 @@ func init() {
 			}
 		}
 	sendLinkEnd:
+		var oc = make(chan string, len(info.Images))
 		if len(info.Images) != 0 {
-			client := http.Client{}
+			//client := http.Client{}
 			var wg = sync.WaitGroup{}
 			var imgFiles []string
 			for _, image := range info.Images {
 				wg.Add(1)
 				image := image
 				go func() {
-					defer wg.Done()
+					defer func() {
+						wg.Done()
+						if r := recover(); r != nil {
 
-					fname := path.Join("tmp", image.Path)
-					if _, err := os.Stat(fname); err == nil {
-						logrus.Infoln("exist", image)
-
-						return
-
-					}
-
-					resp, err2 := client.Get(image.Url)
-					if err2 != nil {
-						logrus.Warn(err2)
-						return
-					}
-					logrus.Infoln("download", image)
-					file, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
-					if err2 != nil {
-						return
-					}
-					s, _ := filepath.Abs(fname)
-					imgFiles = append(imgFiles, s)
-					io.Copy(file, resp.Body)
-					_, err := io.Copy(file, resp.Body)
+						}
+					}()
+					err := downloadImageFromURL(image.Url, oc)
 					if err != nil {
-						file.Close()
-						os.Remove(fname)
-						logrus.Warnln("download Failed", image)
+						logrus.Warnln("download Failed", image, err.Error())
 						return
 					}
-					file.Close()
 					logrus.Infoln("download OK", image)
-
 				}()
 			}
 			wg.Wait()
+			close(oc)
+			imgFiles = make([]string, 0)
+			for s := range oc {
+				imgFiles = append(imgFiles, s)
+			}
 			imgFiles = removeDuplicates(imgFiles)
+			if len(imgFiles) == 0 {
+				logrus.Warn("No imgs.")
+				return
+			}
 			sort.Strings(imgFiles)
 			md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
 			imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
@@ -482,18 +579,20 @@ func init() {
 				exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			cmd.Start()
-			cmd.Wait()
-			err = os.Remove(imgFileListPath)
+			err = cmd.Start()
 			if err != nil {
-				println(err.Error())
-			}
-			// upload
-			if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
-				r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包()#%x.7z", md5Hash), "")
-				if r.RetCode != 0 {
-					logrus.Warn("returns", r.RetCode)
+				cmd.Wait()
+				err = os.Remove(imgFileListPath)
+				if err != nil {
+					println(err.Error())
 				}
+				//upload no
+				//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
+				//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
+				//	if r.RetCode != 0 {
+				//		logrus.Warn("returns", r.RetCode)
+				//	}
+				//}
 			}
 		}
 		{
