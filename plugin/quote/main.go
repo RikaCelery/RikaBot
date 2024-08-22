@@ -1,6 +1,7 @@
 package quote
 
 import (
+	"encoding/json"
 	"fmt"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
@@ -13,10 +14,32 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type renderMessage struct {
+	Name  string `json:"name"`
+	Label string `json:"label,omitempty"`
+	Time  int64  `json:"time"`
+	Qid   int64  `json:"qid"`
+	Quote *struct {
+		Name     string `json:"name"`
+		Label    string `json:"label,omitempty"`
+		Time     int64  `json:"time"`
+		Qid      int64  `json:"qid"`
+		Messages []struct {
+			Type string      `json:"type"`
+			Data interface{} `json:"data"`
+		} `json:"messages"`
+	} `json:"quote"`
+	Messages []struct {
+		Type string      `json:"type"`
+		Data interface{} `json:"data"`
+	} `json:"messages"`
+}
 
 func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
@@ -71,13 +94,223 @@ func init() {
 				}
 				ctx.SendChain(message.ImageBytes(bytes))
 			} else {
+				history := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid))
+				var body []*renderMessage
+				array := history.Get("messages").Array()
+				slices.Reverse(array)
+				array = array[:quoteArgs.Size]
+				slices.Reverse(array)
+				for _, msg := range array {
+					name := msg.Get("sender.card").String()
+					if name == "" {
+						name = msg.Get("sender.nickname").String()
+					}
+					label := ""
+					if msg.Get("sender.role").String() != "member" {
+						label = msg.Get("sender.role").String()
+					}
+					el := &renderMessage{
+						Name:     name,
+						Label:    label,
+						Time:     msg.Get("time").Int(),
+						Qid:      msg.Get("sender.user_id").Int(),
+						Quote:    nil,
+						Messages: nil,
+					}
 
-				history := ctx.GetGroupMessageHistory(ctx.Event.GroupID, msg.ID())
-				for _, result := range history.Get("messages").Array() {
-					fmt.Println(result)
+					if msg.Get("message[0].type").String() == "reply" {
+						qm := ctx.GetMessage(msg.Get("message[0].data.id").Int())
+						name := qm.Sender.Name()
+						label := ""
+						if qm.Sender.Role != "member" {
+							label = qm.Sender.Role
+						}
+						var qMessages []struct {
+							Type string      `json:"type"`
+							Data interface{} `json:"data"`
+						}
+						for i, element := range qm.Elements {
+							switch element.Type {
+							case "replay":
+							case "at":
+								if i != 0 && qm.Elements[i-1].Type != "reply" {
+									id, _ := strconv.Atoi(element.Data["qq"])
+									minfo := ctx.GetGroupMemberInfo(ctx.Event.GroupID, int64(id), true)
+									if minfo.Get("card").String() != "" {
+										qMessages = append(qMessages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("card").String()})
+									} else if minfo.Get("nickname").String() != "" {
+										qMessages = append(qMessages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("nickname").String()})
+									} else {
+										qMessages = append(qMessages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: element.Data["qq"]})
+									}
+								}
+							case "text":
+								qMessages = append(qMessages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "text", Data: element.Data["text"]})
+							case "image":
+								qMessages = append(qMessages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "image", Data: element.Data["url"]})
+							}
+						}
+						el.Quote = &struct {
+							Name     string `json:"name"`
+							Label    string `json:"label,omitempty"`
+							Time     int64  `json:"time"`
+							Qid      int64  `json:"qid"`
+							Messages []struct {
+								Type string      `json:"type"`
+								Data interface{} `json:"data"`
+							} `json:"messages"`
+						}{Name: name, Label: label, Time: strconv.IntSize, Qid: strconv.IntSize}
+						el.Quote.Messages = qMessages
+
+						var messages []struct {
+							Type string      `json:"type"`
+							Data interface{} `json:"data"`
+						}
+						for i, element := range msg.Get("message").Array() {
+							switch element.Get("type").String() {
+							case "replay":
+							case "at":
+								if i != 0 && msg.Get("message").Array()[i-1].Get("type").String() != "reply" {
+									id := element.Get("data.qq").Int()
+									minfo := ctx.GetGroupMemberInfo(ctx.Event.GroupID, int64(id), true)
+									if minfo.Get("card").String() != "" {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("card").String()})
+									} else if minfo.Get("nickname").String() != "" {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("nickname").String()})
+									} else {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: id})
+									}
+								}
+							case "text":
+								messages = append(messages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "text", Data: element.Get("data.text").String()})
+							case "image":
+								messages = append(messages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "image", Data: element.Get("data.url").String()})
+							}
+						}
+						el.Messages = messages
+					} else {
+						var messages []struct {
+							Type string      `json:"type"`
+							Data interface{} `json:"data"`
+						}
+						for i, element := range msg.Get("message").Array() {
+							switch element.Get("type").String() {
+							case "replay":
+							case "at":
+								if i != 0 && msg.Get("message").Array()[i-1].Get("type").String() != "reply" {
+									id := element.Get("data.qq").Int()
+									minfo := ctx.GetGroupMemberInfo(ctx.Event.GroupID, int64(id), true)
+									if minfo.Get("card").String() != "" {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("card").String()})
+									} else if minfo.Get("nickname").String() != "" {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: minfo.Get("nickname").String()})
+									} else {
+										messages = append(messages, struct {
+											Type string      `json:"type"`
+											Data interface{} `json:"data"`
+										}{Type: "at", Data: id})
+									}
+								}
+							case "text":
+								messages = append(messages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "text", Data: element.Get("data.text").String()})
+							case "image":
+								messages = append(messages, struct {
+									Type string      `json:"type"`
+									Data interface{} `json:"data"`
+								}{Type: "image", Data: element.Get("data.url").String()})
+							}
+						}
+						el.Messages = messages
+					}
+					body = append(body, el)
 				}
+				marshal, err := json.Marshal(body)
+				if err != nil {
+					ctx.SendChain(message.Text(err.Error()))
+					return
+				}
+				err, bytes := renderHistoryImage(client, string(marshal), &quoteArgs)
+				if err != nil {
+					ctx.SendChain(message.Text(err.Error()))
+					return
+				}
+				ctx.SendChain(message.ImageBytes(bytes))
 			}
 		})
+}
+
+func renderHistoryImage(client *http.Client, j string, args *struct {
+	Size       int  `arg:"positional" default:"0" help:"不为零时渲染为历史消息记录"`
+	GrayScale  bool `arg:"-g" default:"false" help:"灰度滤镜，默认关闭(仅Size为0时生效)"`
+	Date       bool `arg:"-d" default:"false" help:"包含时间日期，默认关闭(仅Size为0时生效)"`
+	SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
+}) (error, []byte) {
+	postData := url.Values{}
+	postData.Set("messages", j)
+	p, _ := url.Parse("http://127.0.0.1:8888/message?dpi=F2X&fullPage&quality=90&fit-content=true")
+	if !args.GrayScale {
+		query := p.Query()
+		query.Set("color", "true")
+		p.RawQuery = query.Encode()
+	}
+	logrus.Debugf("[%s] rendering %s", "quote", p.String())
+	response, err := client.Post(
+		p.String(),
+		"application/x-www-form-urlencoded",
+		strings.NewReader(postData.Encode()),
+	)
+	if err != nil {
+		return fmt.Errorf("render image error: %v", err), nil
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("render image error: %s", response.Status), nil
+	}
+	var imageBytes []byte
+	if imageBytes, err = io.ReadAll(response.Body); err != nil {
+
+		return fmt.Errorf("render image error: %v", err), nil
+	}
+	return err, imageBytes
 }
 
 // BeautifyPlainText 美观输出消息
@@ -131,13 +364,12 @@ func renderQuoteImage(client *http.Client, name string, avatar string, message s
 	postData.Set("message", message)
 	postData.Set("date", date)
 	logrus.Infof("rendering %v, %s", name, message)
-	p, _ := url.Parse("http://159.75.127.83:8888/quote?dpi=F1_5X&scale=DEVICE&w=500&fullPage&quality=60")
+	p, _ := url.Parse("http://127.0.0.1:8888/quote?dpi=F1_5X&scale=DEVICE&w=500&fullPage&quality=90")
 	if !arg.GrayScale {
 		query := p.Query()
 		query.Set("color", "true")
 		p.RawQuery = query.Encode()
 	}
-	fmt.Printf("%v", arg)
 	println(p.String())
 	response, err := client.Post(
 		p.String(),
