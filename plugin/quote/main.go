@@ -14,7 +14,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -97,9 +96,7 @@ func init() {
 				history := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid))
 				var body []*renderMessage
 				array := history.Get("messages").Array()
-				slices.Reverse(array)
-				array = array[:quoteArgs.Size]
-				slices.Reverse(array)
+				array = array[len(array)-quoteArgs.Size : len(array)-1]
 				for _, msg := range array {
 					name := msg.Get("sender.card").String()
 					if name == "" {
