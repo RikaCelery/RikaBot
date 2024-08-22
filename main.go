@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/spider"
+
 	//"github.com/FloatTech/ZeroBot-Plugin/webctrl"
 	"math/rand"
 	"os"
@@ -12,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/spider"
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/console" // 更改控制台属性
 
@@ -328,5 +328,6 @@ func main() {
 	//	Handle(func(ctx *zero.Ctx) {
 	//		ctx.SendChain(message.Text(strings.ReplaceAll(kanban.Kanban(), "\t", "")))
 	//	})
+	spider.Init()
 	zero.RunAndBlock(&config.Z, process.GlobalInitMutex.Unlock)
 }

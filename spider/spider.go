@@ -2,7 +2,6 @@
 package spider
 
 import (
-	"bytes"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,13 +23,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	ctrl "github.com/FloatTech/zbpctrl"
-	"github.com/FloatTech/zbputils/control"
 )
 
 var lastValidatedRKey = ""
@@ -40,15 +35,15 @@ type row struct {
 	Name string
 }
 
-type ForwardInfo struct {
+type forwardInfo struct {
 	Id      int
-	Images  []File
-	Videos  []File
+	Images  []file
+	Videos  []file
 	Links   []string
 	Magnets []string
 	RawJson string
 }
-type File struct {
+type file struct {
 	Path string
 	Url  string
 }
@@ -67,8 +62,8 @@ func removeDuplicates(slice []string) []string {
 	return result
 }
 
-func removeDuplicatesFile(slice []File) []File {
-	result := make([]File, 0, len(slice))
+func removeDuplicatesFile(slice []file) []file {
+	result := make([]file, 0, len(slice))
 	encountered := make(map[string]bool)
 
 	for _, str := range slice {
@@ -246,17 +241,7 @@ func getFileTypeFromBytes(fileType []byte) (string, error) {
 	return fileExt, nil
 }
 
-func init() {
-	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault: false,
-		Brief:            "spider",
-		Help: "- 今天是什么少女[@xxx]\n" +
-			"- 异世界转生[@xxx]\n" +
-			"- 卖萌[@xxx]\n" +
-			"- 今日老婆[@xxx]\n" +
-			"- 黄油角色[@xxx]",
-	})
-
+func Init() {
 	db := &sqlite.Sqlite{DBPath: "spider.db"}
 	err := db.Open(time.Minute)
 	if err != nil {
@@ -267,135 +252,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	engine.OnRegex(`^\[CQ:reply,id=(-?\d+)].*query`).SetBlock(true).
-		Handle(func(ctx *zero.Ctx) {
-			// 删除需要查询的消息ID
-			id, _ := strconv.Atoi(ctx.State["regex_matched"].([]string)[1])
-			logrus.Debugf("query ID %d", id)
-			var r row
-			err = db.Find("infos", &r, fmt.Sprintf("where ID=%d", id))
-			if err != nil {
-				ctx.Send("NotFound🤔")
-				return
-			}
-			var info ForwardInfo
-			err := json.Unmarshal([]byte(r.Name), &info)
-			if err != nil {
-				println(err.Error())
-				return
-			}
-			{
-				var base64ed []string
-				md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-				abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
-				for _, link := range info.Links {
-					// avoid content audit
-					base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
-				}
-				for _, link := range info.Magnets {
-					// avoid content audit
-					base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
-				}
-				if len(base64ed) != 0 {
-					f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
-					_, _ = f.WriteString(strings.Join(base64ed, "\n"))
-					f.Close()
-					ctx.UploadThisGroupFile(abs, filepath.Base(abs), "/")
-				}
-			}
-			//println(strings.Join(info.Images, "\n"))
-			client := http.Client{}
-			var wg = sync.WaitGroup{}
-			var imgFiles []string
-			for _, image := range info.Images {
-				wg.Add(1)
-				image := image
-				go func() {
-					defer wg.Done()
-					fname := path.Join("tmp", image.Path)
-					if _, err := os.Stat(fname); err != nil {
-						logrus.Infoln("exist", image.Path)
-
-						return
-
-					}
-
-					resp, err2 := client.Get(image.Url)
-					if err2 != nil {
-						logrus.Warn(err2)
-						return
-					}
-					//logrus.Infoln("download", image)
-					file, err2 := os.OpenFile(fname, os.O_CREATE|os.O_RDWR, 0644)
-					if err2 != nil {
-						return
-					}
-					s, _ := filepath.Abs(fname)
-					imgFiles = append(imgFiles, s)
-					_, err := io.Copy(file, resp.Body)
-					if err != nil {
-						file.Close()
-						os.Remove(fname)
-						logrus.Warnln("download Failed", image)
-						return
-					}
-					b := []byte("{\"retcode\":-5503007,\"retmsg\":\"download url has expired\",\"retryflag\":0}")
-					buf := make([]byte, len(b))
-					file.Read(buf)
-					if bytes.Equal(b, buf) {
-						file.Close()
-						os.Remove(fname)
-						logrus.Warnln("download Failed", image)
-						return
-					}
-					file.Close()
-					logrus.Infoln("download OK", image.Path)
-
-				}()
-			}
-			wg.Wait()
-			imgFiles = removeDuplicates(imgFiles)
-			sort.Strings(imgFiles)
-			md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
-			imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
-			imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				panic(err)
-				return
-			}
-
-			_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
-			imgFileList.Close()
-			if err != nil {
-				panic(err)
-				return
-			}
-
-			imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
-			cmd :=
-				exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Start()
-			cmd.Wait()
-			os.Remove(imgFileListPath)
-			ctx.UploadThisGroupFile(imgArchiveAbs, filepath.Base(imgArchiveAbs), "/")
-
-			//cmd = exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe", "twice_"+imgArchive, imgArchive)
-			//cmd.Stdout = os.Stdout
-			//cmd.Stderr = os.Stderr
-			//cmd.Start()
-			//cmd.Wait()
-			//time.Sleep(3 * time.Second)
-			//os.Remove(imgFileListPath)
-			//os.Remove(fmt.Sprintf("%d.imgs.7z", id))
-
-		})
-
-	engine.OnMessage().Handle(func(ctx *zero.Ctx) {
+	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
 		//println(string(ctx.Event.NativeMessage))
-		var images = []File{}
-		var videos = []File{}
+		var images = []file{}
+		var videos = []file{}
 		var links = []string{}
 		var magnets = []string{}
 		res := gjson.ParseBytes(ctx.Event.NativeMessage)
@@ -404,7 +264,7 @@ func init() {
 			switch msgType {
 			case "forward":
 				//t := result.Get("json.type").String()
-				Parse(result.Get("data.json"),
+				parse(result.Get("data.json"),
 					[]string{
 						"TextEntity",
 						"ImageEntity",
@@ -426,14 +286,14 @@ func init() {
 						} else if res.Get("type").String() == "ImageEntity" {
 							println(res.Get("ImageUrl").String())
 							images = append(images,
-								File{
+								file{
 									Path: res.Get("FilePath").String(),
 									Url:  res.Get("ImageUrl").String(),
 								})
 						} else {
 							println(res.Get("ImageUrl").String())
 							videos = append(videos,
-								File{
+								file{
 									Path: res.Get("FilePath").String(),
 									Url:  res.Get("VideoUrl").String(),
 								})
@@ -472,7 +332,7 @@ func init() {
 		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
 			return
 		}
-		info := ForwardInfo{
+		info := forwardInfo{
 			Id:      int(ctx.Event.MessageID.(int64)),
 			Images:  images,
 			Links:   links,
@@ -638,12 +498,12 @@ func init() {
 	})
 }
 
-func Parse(result gjson.Result, filter []string, callback func(res gjson.Result)) {
+func parse(result gjson.Result, filter []string, callback func(res gjson.Result)) {
 	t := result.Get("type").String()
 	switch t {
 	case "MultiMsgEntity":
 		for _, r := range result.Get("Chains").Array() {
-			Parse(r, filter, callback)
+			parse(r, filter, callback)
 		}
 		return
 	case "TextEntity":
@@ -673,7 +533,7 @@ func Parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 		return
 	case "MessageChain":
 		for _, r := range result.Get("MessageChain").Array() {
-			Parse(r, filter, callback)
+			parse(r, filter, callback)
 		}
 		return
 	case "XmlEntity":
