@@ -128,11 +128,7 @@ create table if not exists 'group_rss_format'
 						for _, group := range groups {
 							if group.Get("group_id").Int() == int64(res.Gid) {
 
-								err, mid := sendRssMessage(db, item, client, feed, ctx, res)
-								if mid <= 0 {
-									logrus.Errorf("[rss update cron] send group message failed, code: %v", err)
-									return false
-								}
+								err, _ := sendRssMessage(db, item, client, feed, ctx, res)
 								res.LastUpdate = item.Published
 								err = setRssPushed(db, item, res)
 								if err != nil {
@@ -251,7 +247,8 @@ create table if not exists 'group_rss_format'
 	})
 
 	var argRssTest struct {
-		URL string `arg:"positional"`
+		URL    string `arg:"positional"`
+		Format int    `arg:"-f" default:"1"`
 	}
 	argRssTestParser, _ := arg.NewParser(arg.Config{Program: "rss t", IgnoreEnv: true}, &argRssTest)
 	engine.OnRegex("rss +t +(.*)", zero.OnlyGroup, zero.AdminPermission).Handle(func(ctx *zero.Ctx) {
@@ -274,7 +271,7 @@ create table if not exists 'group_rss_format'
 			Gid:        int(ctx.Event.GroupID),
 			LastUpdate: time.UnixMicro(1000).Format(time.RFC1123Z),
 		}
-		err, _ = sendRssMessage(db, feed.Items[0], client, feed, ctx, &res)
+		err, _ = sendRssMessageFormat(db, feed.Items[0], client, feed, ctx, &res, argRssTest.Format)
 		if err != nil {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("[ERROR]: %v", err)))
 			return
@@ -407,6 +404,11 @@ func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedUrl string, tmpl str
 	return err
 }
 
+func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (error, int64) {
+	err, msg := renderRssToMessage(db, ctx, t, item, feed, res, client)
+	mid := ctx.SendGroupMessage(int64(res.Gid), msg)
+	return err, mid
+}
 func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (error, int64) {
 	var t = getRssRenderType(db, int64(res.Gid), res.Feed)
 	err, msg := renderRssToMessage(db, ctx, t, item, feed, res, client)
@@ -550,12 +552,12 @@ func renderRssToMessage(db *sql.Sqlite, ctx *zero.Ctx, renderType int, item *gof
 		logrus.Infoln("render image success")
 
 		return nil, []message.MessageSegment{
-			message.ImageBytes(imageBytes), message.Text(fmt.Sprintf("#%s\n%s\n%s", feed.Title, item.Link, strings.Join(item.Categories, ", "))),
+			message.ImageBytes(imageBytes), message.Text(strings.Trim(fmt.Sprintf("#%s\n%s\n%s", feed.Title, item.Link, strings.Join(item.Categories, ", ")), " \n\r")),
 		}
 	case 2:
-		return nil, []message.MessageSegment{message.Text("#"+feed.Title, truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
+		return nil, []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
 	case 3:
-		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
+		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
 		var links = []string{}
 		if item.Image != nil {
 			msgs = append(msgs, message.Image(item.Image.URL))
@@ -573,11 +575,11 @@ func renderRssToMessage(db *sql.Sqlite, ctx *zero.Ctx, renderType int, item *gof
 		desc := ""
 		reader, err := goquery.NewDocumentFromReader(strings.NewReader(item.Description))
 		if err != nil {
-			desc = item.Description
+			desc = strings.Trim(item.Description, " \n\r")
 		} else {
-			desc = reader.Text()
+			desc = strings.Trim(reader.Text(), " \n\r")
 		}
-		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, item.Title, "\n", strings.Join(item.Categories, ", "), "\n", item.Link, "\n", desc)}
+		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", item.Title, "\n", strings.Join(item.Categories, ", "), "\n", item.Link, "\n", desc)}
 		var links = []string{}
 		if item.Image != nil {
 			msgs = append(msgs, message.Image(item.Image.URL))
