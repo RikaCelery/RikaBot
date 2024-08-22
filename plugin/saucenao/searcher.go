@@ -14,7 +14,6 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 
 	"github.com/FloatTech/AnimeAPI/ascii2d"
-	"github.com/FloatTech/AnimeAPI/pixiv"
 	"github.com/jozsefsallai/gophersauce"
 
 	"github.com/FloatTech/floatbox/binary"
@@ -22,7 +21,6 @@ import (
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
-	"github.com/FloatTech/zbputils/img/pool"
 )
 
 const (
@@ -38,8 +36,13 @@ func init() { // 插件主体
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "以图搜图",
-		Help: "- 以图搜图 | 搜索图片 | 以图识图[图片]\n" +
-			"- 搜图[P站图片ID]",
+		Help: `- (以图搜图 | 搜索图片 | 以图识图 | source | src? | src？) + [图片]
+- 回复一张图也可以 (别急我还没写)
+- 设置saucenao api key <你的key> [仅超级用户]
+- ^(开启|打开|启用|关闭|关掉|禁用)搜图显示图片$ [仅超级用户]
+`,
+		//"- 搜图[P站图片ID]"
+
 		PrivateDataFolder: "saucenao",
 	})
 	apikeyfile := engine.DataFolder() + "apikey.txt"
@@ -112,13 +115,13 @@ func init() { // 插件主体
 			}
 		})
 	// 以图搜图
-	engine.OnKeywordGroup([]string{"以图搜图", "搜索图片", "以图识图"}, zero.MustProvidePicture).SetBlock(true).
+	engine.OnKeywordGroup([]string{"以图搜图", "搜索图片", "以图识图", "source", "src?", "src？"}, zero.MustProvidePicture).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			// 开始搜索图片
 			pics, ok := ctx.State["image_url"].([]string)
 			showPic := false
 			if !ok {
-				ctx.SendChain(message.Text("ERROR: 未获取到图片链接"))
+				//ctx.SendChain(message.Text("ERROR: 未获取到图片链接"))
 				return
 			}
 			c, ok := ctx.State["manager"].(*ctrl.Control[*zero.Ctx])
@@ -145,7 +148,7 @@ func init() { // 插件主体
 									}
 								}
 							})
-							resp, err := http2.Head(result.Header.Thumbnail)
+							resp, err := http.Head(result.Header.Thumbnail)
 							msg := make(message.Message, 0, 3)
 							if s > 80.0 {
 								msg = append(msg, message.Text("我有把握是这个!"))
