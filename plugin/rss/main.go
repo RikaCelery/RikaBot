@@ -72,8 +72,11 @@ func init() {
 	if err != nil {
 		logrus.Fatal(err)
 	} else {
-		db.Create("group_rss", &rssInfo{})
-		db.DB.Exec(`create table if not exists 'group_rss_pushed'
+		err = db.Create("group_rss", &rssInfo{})
+		if err != nil {
+			panic(err)
+		}
+		_, err = db.DB.Exec(`create table if not exists 'group_rss_pushed'
 (
     Link       TEXT    not null,
     Gid        integer not null,
@@ -93,6 +96,9 @@ create table if not exists 'group_rss_format'
         primary key (FeedUrl, Gid)
 );
 `)
+		if err != nil {
+			panic(err)
+		}
 
 	}
 	client := &http.Client{}
@@ -332,10 +338,14 @@ create table if not exists 'group_rss_format'
 		SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		var msg = ""
 		var res = &rssInfo{}
-		db.FindFor("group_rss", res, fmt.Sprintf("where Gid = %d", ctx.Event.GroupID), func() error {
+		err := db.FindFor("group_rss", res, fmt.Sprintf("where Gid = %d", ctx.Event.GroupID), func() error {
 			msg += fmt.Sprintf("ID: %d, Url: %s, 最近更新时间: %s\n", res.Id, res.Feed, res.LastUpdate)
 			return nil
 		})
+		if err != nil {
+			ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
+			return
+		}
 		if msg == "" {
 			msg = "该群组未订阅任何rss源"
 		}
@@ -405,13 +415,13 @@ func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedUrl string, tmpl str
 }
 
 func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (error, int64) {
-	err, msg := renderRssToMessage(db, ctx, t, item, feed, res, client)
+	err, msg := renderRssToMessage(db, t, item, feed, res, client)
 	mid := ctx.SendGroupMessage(int64(res.Gid), msg)
 	return err, mid
 }
 func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (error, int64) {
 	var t = getRssRenderType(db, int64(res.Gid), res.Feed)
-	err, msg := renderRssToMessage(db, ctx, t, item, feed, res, client)
+	err, msg := renderRssToMessage(db, t, item, feed, res, client)
 	mid := ctx.SendGroupMessage(int64(res.Gid), msg)
 	return err, mid
 }
@@ -529,7 +539,7 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 // 3: 推送标题、链接和图片
 // 4: 推送标题、链接和图片和内容
 // 5: 自定义消息模板
-func renderRssToMessage(db *sql.Sqlite, ctx *zero.Ctx, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (error, interface{}) {
+func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (error, interface{}) {
 	defer func() {
 		if err := recover(); err != nil {
 			marshal, _ := json.MarshalIndent(item, "", "  ")
