@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -123,7 +122,7 @@ create table if not exists 'group_rss_format'
 					logrus.Errorf("[rss update cron] update failed,id %d, group %d,  feed %s, err %v", res.Id, res.Gid, res.Feed, err)
 					return nil
 				}
-				slices.Reverse(feed.Items)
+				reverse(feed.Items)
 				for _, item := range feed.Items {
 					if isRssPushed(db, res.Feed, item, int64(res.Gid)) {
 						continue
@@ -371,6 +370,19 @@ create table if not exists 'group_rss_format'
 	})
 
 }
+func reverse[S ~[]E, E any](s S) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
 func getTemplate(db *sql.Sqlite, gid int64, feedUrl string) (error, string) {
 	var t string
 	if db.CanQuery(fmt.Sprintf("select template from group_rss_format where Gid = %d and FeedUrl = '%s'", gid, feedUrl)) {
@@ -447,14 +459,14 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 					continue
 				}
 				cqUrl := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
-				if !slices.Contains(imgs, cqUrl) {
+				if !contains(imgs, cqUrl) {
 					imgs = append(imgs, cqUrl)
 				}
 			}
 			reader.Find("img").Each(func(i int, selection *goquery.Selection) {
 				src := selection.AttrOr("src", "")
 				cqUrl := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
-				if !slices.Contains(imgs, cqUrl) {
+				if !contains(imgs, cqUrl) {
 					imgs = append(imgs, cqUrl)
 				}
 			})
@@ -574,7 +586,7 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 			links = append(links, item.Image.URL)
 		}
 		for _, enclosure := range item.Enclosures {
-			if strings.HasPrefix(enclosure.Type, "image/") && !slices.Contains(links, enclosure.URL) {
+			if strings.HasPrefix(enclosure.Type, "image/") && !contains(links, enclosure.URL) {
 				msgs = append(msgs, message.Image(enclosure.URL))
 				links = append(links, enclosure.URL)
 			}
@@ -596,7 +608,7 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 			links = append(links, item.Image.URL)
 		}
 		for _, enclosure := range item.Enclosures {
-			if strings.HasPrefix(enclosure.Type, "image/") && !slices.Contains(links, enclosure.URL) {
+			if strings.HasPrefix(enclosure.Type, "image/") && !contains(links, enclosure.URL) {
 				msgs = append(msgs, message.Image(enclosure.URL))
 				links = append(links, enclosure.URL)
 			}
