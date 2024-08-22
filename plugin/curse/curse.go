@@ -24,7 +24,9 @@ func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: true,
 		Brief:            "骂人反击",
-		Help:             "- 骂我\n- 大力骂我",
+		Help: `- 骂我
+- 大力骂我
+- (@Bot 检测到关键词后会反击（)`,
 		PublicDataFolder: "Curse",
 	})
 

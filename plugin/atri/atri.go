@@ -51,12 +51,23 @@ func init() { // 插件主体
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "atri人格文本回复",
-		Help: "本插件基于 ATRI ，为 Golang 移植版\n" +
-			"- ATRI醒醒\n- ATRI睡吧\n- 萝卜子\n- 喜欢 | 爱你 | 爱 | suki | daisuki | すき | 好き | 贴贴 | 老婆 | 亲一个 | mua\n" +
-			"- 草你妈 | 操你妈 | 脑瘫 | 废柴 | fw | 废物 | 战斗 | 爬 | 爪巴 | sb | SB | 傻B\n- 早哇 | 早上好 | ohayo | 哦哈哟 | お早う | 早好 | 早 | 早早早\n" +
-			"- 中午好 | 午安 | 午好\n- 晚安 | oyasuminasai | おやすみなさい | 晚好 | 晚上好\n- 高性能 | 太棒了 | すごい | sugoi | 斯国一 | よかった\n" +
-			"- 没事 | 没关系 | 大丈夫 | 还好 | 不要紧 | 没出大问题 | 没伤到哪\n- 好吗 | 是吗 | 行不行 | 能不能 | 可不可以\n- 啊这\n- 我好了\n- ？ | ? | ¿\n" +
-			"- 离谱\n- 答应我",
+		Help: `本插件基于 ATRI ，为 Golang 移植版
+- ATRI醒醒
+- ATRI睡吧
+- 萝卜子
+- @Bot + 喜欢 | 爱你 | 爱 | suki | daisuki | すき | 好き | 贴贴 | 老婆 | 亲一个 | mua
+- @Bot + 草你妈 | 操你妈 | 脑瘫 | 废柴 | fw | 废物 | 战斗 | 爬 | 爪巴 | sb | SB | 傻B
+- 早哇 | 早上好 | ohayo | 哦哈哟 | お早う | 早好 | 早 | 早早早
+- 中午好 | 午安 | 午好
+- 晚安 | oyasuminasai | おやすみなさい | 晚好 | 晚上好
+- @Bot + 高性能 | 太棒了 | すごい | sugoi | 斯国一 | よかった
+- @Bot + 没事 | 没关系 | 大丈夫 | 还好 | 不要紧 | 没出大问题 | 没伤到哪
+- 好吗 | 是吗 | 行不行 | 能不能 | 可不可以
+- 啊这
+- 我好了
+- ？ | ? | ¿
+- 离谱
+- @Bot + 答应我`,
 		PublicDataFolder: "Atri",
 		OnEnable: func(ctx *zero.Ctx) {
 			ctx.SendChain(message.Text("嗯呜呜……夏生先生……？"))

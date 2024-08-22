@@ -18,7 +18,13 @@ var (
 	engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "基础反应, 群空调",
-		Help:             "chat\n- [BOT名字]\n- [戳一戳BOT]\n- 空调开\n- 空调关\n- 群温度\n- 设置温度[正整数]",
+		Help: `chat
+- [BOT名字]
+- [戳一戳BOT]
+- 空调开
+- 空调关
+- 群温度
+- 设置温度[正整数]`,
 	})
 )
 

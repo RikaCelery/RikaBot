@@ -34,9 +34,10 @@ var seaLocker sync.RWMutex
 
 func init() {
 	en := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault:  false,
-		Brief:             "漂流瓶",
-		Help:              "- @bot pick" + "- @bot throw xxx (xxx为投递内容)",
+		DisableOnDefault: false,
+		Brief:            "漂流瓶",
+		Help: `- @bot pick
+- @bot throw xxx (xxx为投递内容)`,
 		PrivateDataFolder: "driftbottle",
 	})
 	seaSide.DBPath = en.DataFolder() + "sea.db"
@@ -59,7 +60,7 @@ func init() {
 		ctx.Send(msg)
 	})
 
-	en.OnRegex(`throw.*?(.*)`, zero.OnlyToMe, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	en.OnRegex(`throw\s*(.*)`, zero.OnlyToMe, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		senderFormatTime := time.Unix(ctx.Event.Time, 0).Format("2006-01-02 15:04:05")
 		rawSenderMessage := ctx.State["regex_matched"].([]string)[1]
 		rawMessageCallBack := message.UnescapeCQCodeText(rawSenderMessage)
