@@ -52,7 +52,7 @@ func init() {
 			gid := ctx.Event.GroupID
 			uid := ctx.Event.UserID
 			fiancee := ctx.State["regex_matched"].([]string)
-			gay, _ := strconv.ParseInt(fiancee[2]+fiancee[3], 10, 64)
+			gay, _ := strconv.ParseInt(fiancee[1]+fiancee[2], 10, 64)
 			if gay == uid {
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.At(uid), message.Text("你想给自己买什么礼物呢?")))
 				return

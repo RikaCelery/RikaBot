@@ -78,7 +78,7 @@ func init() {
 		Handle(func(ctx *zero.Ctx) {
 			uid := ctx.Event.UserID
 			fiancee := ctx.State["regex_matched"].([]string)
-			victimID, _ := strconv.ParseInt(fiancee[2]+fiancee[3], 10, 64)
+			victimID, _ := strconv.ParseInt(fiancee[1]+fiancee[2], 10, 64)
 			if victimID == uid {
 				ctx.Send(message.ReplyWithMessage(ctx.Event.MessageID, message.At(uid), message.Text("不能打劫自己")))
 				return
