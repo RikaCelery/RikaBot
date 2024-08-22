@@ -3,12 +3,13 @@ package saucenao
 
 import (
 	"fmt"
+	"github.com/FloatTech/AnimeAPI/pixiv"
+	"github.com/FloatTech/zbputils/img/pool"
 	"net/http"
 	"os"
 	"reflect"
 	"strconv"
 
-	"github.com/fumiama/terasu/http2"
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
