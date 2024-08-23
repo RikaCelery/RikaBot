@@ -19,7 +19,9 @@ func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "cp短打", // 这里也许有更好的名字
-		Help:             "- 组cp[@xxx][@xxx]\n- 磕cp大老师 雪乃",
+		Help: `- 组cp[@xxx][@xxx] 需要是群友
+- 磕cp [名字1] [名字2] 磕任意名字的cp
+例：磕cp大老师 雪乃`,
 		PublicDataFolder: "CpStory",
 	})
 

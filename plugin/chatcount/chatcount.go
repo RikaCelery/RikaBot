@@ -22,7 +22,7 @@ func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
 		Brief:             "聊天时长统计",
-		Help:              "- 查询水群@xxx\n- 查看水群排名",
+		Help:              "- 查询水群 [@xxx] 不@是自己\n- 查看水群排名",
 		PrivateDataFolder: "chatcount",
 	})
 	go func() {

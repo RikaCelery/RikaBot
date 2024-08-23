@@ -39,9 +39,11 @@ func onDel(uid int64, _ struct{}) {
 
 func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault:  false,
-		Brief:             "违禁词检测",
-		Help:              "- /[添加|删除|查看]违禁词",
+		DisableOnDefault: false,
+		Brief:            "违禁词检测",
+		Help: `- {prefix}添加违禁词 xxx
+- {prefix}删除违禁词 xxx
+- {prefix}查看违禁词 xxx`,
 		PrivateDataFolder: "anti_abuse",
 	})
 
