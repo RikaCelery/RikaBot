@@ -96,7 +96,7 @@ func init() {
 				history := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid))
 				var body []*renderMessage
 				array := history.Get("messages").Array()
-				array = array[len(array)-quoteArgs.Size-1 : len(array)-1]
+				array = array[len(array)-quoteArgs.Size:]
 				for _, msg := range array {
 					name := msg.Get("sender.card").String()
 					if name == "" {
