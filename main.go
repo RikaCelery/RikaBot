@@ -352,5 +352,23 @@ func main() {
 		service := ctx.State["service"].(*ctrl.Control[*zero.Ctx])
 		ctx.Send(fmt.Sprintf("%s%s 似乎是一个服务的名称，如果你想知道如何使用改服务请 @Bot%s用法 %s", zero.BotConfig.CommandPrefix, service.Service, zero.BotConfig.CommandPrefix, service.Service))
 	}).FirstPriority().SetBlock(false)
+	zero.OnCommandGroup([]string{"change_logs", "更新日志"}).Handle(func(ctx *zero.Ctx) {
+		version := strings.TrimSpace(ctx.State["args"].(string))
+		if version != "" {
+			for _, log := range changeLog {
+				if log.Version == version {
+					ctx.Send("更新日志**" + log.Version + "**：\n" + log.ChangeLog)
+					return
+				}
+			}
+			buf := strings.Builder{}
+			for i := 0; i < 10; i++ {
+				buf.WriteString(changeLog[i].Version + "\n")
+			}
+			ctx.Send("未找到版本号：" + version + "\n最近的10个版本号：\n" + buf.String())
+		} else {
+			ctx.Send("更新日志**" + changeLog[0].Version + "**：\n" + changeLog[0].ChangeLog)
+		}
+	})
 	zero.RunAndBlock(&config.Z, process.GlobalInitMutex.Unlock)
 }
