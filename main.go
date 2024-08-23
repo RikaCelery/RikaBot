@@ -357,7 +357,7 @@ func main() {
 		if version != "" {
 			for _, log := range changeLog {
 				if log.Version == version {
-					ctx.Send("更新日志**" + log.Version + "**：\n" + log.ChangeLog)
+					ctx.Send("更新日志**" + log.Version + "**：\n" + strings.ReplaceAll(log.ChangeLog, "{prefix}", zero.BotConfig.CommandPrefix))
 					return
 				}
 			}
@@ -365,9 +365,9 @@ func main() {
 			for i := 0; i < 10; i++ {
 				buf.WriteString(changeLog[i].Version + "\n")
 			}
-			ctx.Send("未找到版本号：" + version + "\n最近的10个版本号：\n" + buf.String())
+			ctx.Send("未找到版本号：" + version + "\n最近的10个版本号：\n" + strings.ReplaceAll(buf.String(), "{prefix}", zero.BotConfig.CommandPrefix))
 		} else {
-			ctx.Send("更新日志**" + changeLog[0].Version + "**：\n" + changeLog[0].ChangeLog)
+			ctx.Send("更新日志**" + changeLog[0].Version + "**：\n" + strings.ReplaceAll(changeLog[0].ChangeLog, "{prefix}", zero.BotConfig.CommandPrefix))
 		}
 	})
 	zero.RunAndBlock(&config.Z, process.GlobalInitMutex.Unlock)
