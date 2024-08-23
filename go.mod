@@ -10,7 +10,7 @@ require (
 	github.com/FloatTech/imgfactory v0.2.2-0.20230413152719-e101cc3606ef
 	github.com/FloatTech/rendercard v0.1.1
 	github.com/FloatTech/sqlite v1.6.3
-	github.com/FloatTech/ttl v0.0.0-20230307105452-d6f7b2b647d1
+	github.com/FloatTech/ttl v0.0.0-20240716161252-965925764562
 	github.com/FloatTech/zbpctrl v1.6.2-0.20240819160950-8c602be65fc6
 	github.com/FloatTech/zbputils v1.7.2-0.20240822065525-5ea6811ed91c
 	github.com/PuerkitoBio/goquery v1.8.0
@@ -44,13 +44,12 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil/v3 v3.24.4
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/wcharczuk/go-chart/v2 v2.1.1
 	github.com/wdvxdr1123/ZeroBot v1.7.5-0.20240819160523-35d33e774a2d
 	gitlab.com/gomidi/midi/v2 v2.1.7
 	golang.org/x/image v0.16.0
-	golang.org/x/sys v0.20.0
+	golang.org/x/sys v0.24.0
 	golang.org/x/text v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -65,7 +64,6 @@ require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/antchfx/xpath v1.3.0 // indirect
 	github.com/blend/go-sdk v1.20220411.3 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ericpauley/go-quantize v0.0.0-20200331213906-ae555eb2afa4 // indirect
 	github.com/faiface/beep v1.1.0 // indirect
@@ -105,7 +103,6 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pkumza/numcn v1.0.0 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
@@ -127,10 +124,10 @@ require (
 	golang.org/x/tools v0.19.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	modernc.org/libc v1.49.3 // indirect
+	modernc.org/libc v1.59.9 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.8.0 // indirect
-	modernc.org/sqlite v1.20.0 // indirect
+	modernc.org/sqlite v1.32.0 // indirect
 )
 
 replace modernc.org/sqlite => github.com/fumiama/sqlite3 v1.29.10-simp
@@ -140,5 +137,7 @@ replace modernc.org/libc => github.com/fumiama/libc v0.0.0-20240530081950-6f6d85
 replace github.com/FloatTech/zbputils => /Users/rikahil/GolandProjects/zbputils
 
 replace github.com/FloatTech/rendercard => /Users/rikahil/GolandProjects/rendercard
+
+replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite v0.0.0-20240823015605-4bf1010ec6bb
 
 replace github.com/wdvxdr1123/ZeroBot => /Users/rikahil/GolandProjects/ZeroBot
