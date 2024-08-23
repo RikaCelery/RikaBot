@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -50,6 +51,10 @@ type picTag struct {
 	Tag   string
 	PicId int
 }
+
+var (
+	errPicNotFound = fmt.Errorf("pic not found")
+)
 
 func (p *picPickDB) createDb(engine *control.Engine) error {
 	if p.Db == nil {
@@ -100,12 +105,52 @@ create unique index if not exists tags_PicId_Tag_uindex
 	}
 	return nil
 }
-func (p *picPickDB) getPicByID(id int) (*picEntity, error) {
-	find, err := sql.Find[*picEntity](p.Db, "pics", "where Id = "+strconv.Itoa(id))
+func (p *picPickDB) getPicByFileId(fileId int) (*picEntity, error) {
+	if !db.Db.CanFind("pics", "where FileId = "+strconv.Itoa(fileId)) {
+		return nil, errPicNotFound
+	}
+	var find = &picEntity{}
+	err := p.Db.Find("pics", find, "where FileId = "+strconv.Itoa(fileId))
 	if err != nil {
 		return nil, err
 	}
 	return find, nil
+}
+func (p *picPickDB) delPicById(picId int) error {
+	if !db.Db.CanFind("pics", "where Id = "+strconv.Itoa(picId)) {
+		return errPicNotFound
+	}
+	err := p.Db.Del("pics", "where Id = ?", picId)
+	if err != nil {
+		return err
+	}
+	err = p.Db.Del("tags", "where PicId = ?", picId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (p *picPickDB) delFileByPicId(fileId int) error {
+	if !db.Db.CanFind("pics", "where Id = "+strconv.Itoa(fileId)) {
+		return errPicNotFound
+	}
+	pic, err := sql.Find[picEntity](p.Db, "pics", "where Id = ?", fileId)
+	if err != nil {
+		return err
+	}
+	err = p.Db.Del("files", "where Id = ?", pic.FileId)
+	if err != nil {
+		return err
+	}
+	err = p.Db.Del("pics", "where Id = ?", pic.Id)
+	if err != nil {
+		return err
+	}
+	err = p.Db.Del("tags", "where PicId = ?", pic.Id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func (p *picPickDB) getAllTags() ([]string, error) {
 	find, err := sql.QueryAll[string](p.Db, "select distinct Tag from tags")
@@ -270,6 +315,7 @@ func init() {
 - {prefix}pic a <标签1> <标签2> <标签3>... + 图片或回复图片    收藏这张图片，并给图片打上tag
 - {prefix}pic get <标签1> <标签2> <标签3>...   返回一张符合所有tag的图片
 - {prefix}pic ls 列出所有tag
+- {prefix}pic ls <标签名字> 列出tag对应的所有图片
 - {prefix}pic rm <id> 删除id的图片
 - {prefix}pic file rm <id> 删除某个id的文件，如果该文件被其他图片引用，则一并删除`,
 		PrivateDataFolder: "picPick",
@@ -279,7 +325,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	engine.OnCommand("pic ls", zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnCommand("pic ls").SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		tags, err := db.getAllTags()
 		if err != nil {
 			ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
@@ -322,10 +368,16 @@ func init() {
 						} else {
 							fileId = files[0].Id
 						}
-						picId, err := db.InsertPic(fileId)
-						if err != nil {
-							ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
-							return
+						var picId = -1
+						entity, err := db.getPicByFileId(fileId)
+						if err == nil {
+							picId = entity.Id
+						} else {
+							picId, err = db.InsertPic(fileId)
+							if err != nil {
+								ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
+								return
+							}
 						}
 						err = db.InsertPicTags(tags, picId)
 						if err != nil {
@@ -359,6 +411,34 @@ func init() {
 			msgs = append(msgs, message.ImageBytes(readFile))
 		}
 		ctx.Send(msgs)
+
+	})
+	engine.OnCommand("pic rm", zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		picId, err := strconv.Atoi(ctx.State["args"].(string))
+		if err != nil {
+			ctx.SendChain(message.Text("[ERROR]:", err))
+			return
+		}
+		err = db.delPicById(picId)
+		if errors.Is(err, errPicNotFound) {
+			ctx.SendChain(message.Text("[ERROR]:没有找到图片"))
+			return
+		}
+		ctx.Send("删除成功")
+
+	})
+	engine.OnCommand("pic file rm", zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		picId, err := strconv.Atoi(ctx.State["args"].(string))
+		if err != nil {
+			ctx.SendChain(message.Text("[ERROR]:", err))
+			return
+		}
+		err = db.delFileByPicId(picId)
+		if errors.Is(err, errPicNotFound) {
+			ctx.SendChain(message.Text("[ERROR]:没有找到图片"))
+			return
+		}
+		ctx.Send("删除成功")
 
 	})
 }
