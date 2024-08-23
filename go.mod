@@ -58,7 +58,6 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b // indirect
 	github.com/adamzy/cedar-go v0.0.0-20170805034717-80a9c64b256d // indirect
 	github.com/ajstarks/svgo v0.0.0-20200320125537-f189e35d30ca // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
@@ -139,6 +138,6 @@ replace github.com/FloatTech/zbputils => /Users/rikahil/GolandProjects/zbputils
 
 replace github.com/FloatTech/rendercard => /Users/rikahil/GolandProjects/rendercard
 
-replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite  v0.0.0-20240823061305-68a59a0ec39b
+replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b
 
 replace github.com/wdvxdr1123/ZeroBot => /Users/rikahil/GolandProjects/ZeroBot
