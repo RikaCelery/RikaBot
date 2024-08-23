@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/FloatTech/ZeroBot-Plugin/spider"
+	ctrl "github.com/FloatTech/zbpctrl"
+	"github.com/FloatTech/zbputils/control"
 
 	//"github.com/FloatTech/ZeroBot-Plugin/webctrl"
 	"math/rand"
@@ -100,12 +102,15 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/nsfw"             // nsfw图片识别
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/nwife"            // 本地老婆
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/omikuji"          // 浅草寺求签
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/picpick"          // 图片收藏
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/poker"            // 抽扑克
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qqwife"           // 一群一天一夫一妻制群老婆
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/quote"            // 记录群友丢人时刻
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qzone"            // qq空间表白墙
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/realcugan"        // realcugan清晰术
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/reborn"           // 投胎
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/robbery"          // 打劫群友的ATRI币
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/rss"              // RSS订阅
 	_ "github.com/FloatTech/zbputils/job"                           // 定时指令触发器
 	//
 	////                               ^^^^                               //
@@ -126,8 +131,6 @@ import (
 	////                          vvvvvvvvvvvvvv                          //
 	////                               vvvv                               //
 	//
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/quote"       // ahsai tts
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/rss"         // ahsai tts
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/runcode"     // 在线运行代码
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/saucenao"    // 以图搜图
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/score"       // 分数
@@ -329,5 +332,25 @@ func main() {
 	//		ctx.SendChain(message.Text(strings.ReplaceAll(kanban.Kanban(), "\t", "")))
 	//	})
 	spider.Init()
+	zero.OnMessage(func(ctx *zero.Ctx) bool {
+		if len(ctx.Event.Message) == 0 || ctx.Event.Message[0].Type != "text" {
+			return false
+		}
+		first := ctx.Event.Message[0]
+		firstMessage := first.Data["text"]
+		if !strings.HasPrefix(firstMessage, zero.BotConfig.CommandPrefix) {
+			return false
+		}
+		cmdMessage := firstMessage[len(zero.BotConfig.CommandPrefix):]
+
+		if service, ok := control.Lookup(strings.Split(cmdMessage, " ")[0]); ok {
+			ctx.State["service"] = service
+			return true
+		}
+		return false
+	}).Handle(func(ctx *zero.Ctx) {
+		service := ctx.State["service"].(*ctrl.Control[*zero.Ctx])
+		ctx.Send(fmt.Sprintf("%s%s 似乎是一个服务的名称，如果你想知道如何使用改服务请 @Bot%s用法 %s", zero.BotConfig.CommandPrefix, service.Service, zero.BotConfig.CommandPrefix, service.Service))
+	}).FirstPriority().SetBlock(false)
 	zero.RunAndBlock(&config.Z, process.GlobalInitMutex.Unlock)
 }
