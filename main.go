@@ -83,6 +83,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hitokoto"         // 一言
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hs"               // 炉石
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hyaku"            // 百人一首
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/igem"             // igem renderer
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/inject"           // 注入指令
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/jandan"           // 煎蛋网无聊图
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/jptingroom"       // 日语听力学习材料
@@ -352,7 +353,7 @@ func main() {
 	}).Handle(func(ctx *zero.Ctx) {
 		service := ctx.State["service"].(*ctrl.Control[*zero.Ctx])
 		ctx.Send(fmt.Sprintf("%s%s 似乎是一个服务的名称，如果你想知道如何使用改服务请 @Bot%s用法 %s", zero.BotConfig.CommandPrefix, service.Service, zero.BotConfig.CommandPrefix, service.Service))
-	}).FirstPriority().SetBlock(false)
+	}).SetPriority(9999).SetBlock(false)
 	zero.OnCommandGroup([]string{"change_logs", "更新日志"}).Handle(func(ctx *zero.Ctx) {
 		version := strings.TrimSpace(ctx.State["args"].(string))
 		if version != "" {
