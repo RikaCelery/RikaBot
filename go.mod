@@ -136,6 +136,8 @@ replace modernc.org/libc => github.com/fumiama/libc v0.0.0-20240530081950-6f6d85
 
 replace github.com/FloatTech/zbputils => /Users/rikahil/GolandProjects/zbputils
 
+replace github.com/FloatTech/floatbox => /Users/rikahil/GolandProjects/floatbox
+
 replace github.com/FloatTech/rendercard => /Users/rikahil/GolandProjects/rendercard
 
 replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b
