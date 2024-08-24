@@ -692,7 +692,7 @@ func renderRssImage(item *gofeed.Item, client *http.Client) (error, []byte) {
 	return err, imageBytes
 }
 func isRssPushed(db *sql.Sqlite, feedUrl string, item *gofeed.Item, gid int64) bool {
-	return db.CanFind("group_rss_pushed", fmt.Sprintf("where Link='%s' and gid=%d and FeedUrl='%s'", item.Link, gid, feedUrl))
+	return db.CanFind("group_rss_pushed", "where Link= ? and gid= ? and FeedUrl= ? and Published = ?", item.Link, gid, feedUrl, item.Published)
 }
 func delRss(db *sql.Sqlite, gid int64, rssId int) error {
 	var res = &rssInfo{}
