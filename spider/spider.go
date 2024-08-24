@@ -3,22 +3,20 @@ package spider
 
 import (
 	"crypto/md5"
-	"encoding/base64"
+	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	sqlite "github.com/FloatTech/sqlite"
 	"github.com/gabriel-vasile/mimetype"
-	"net/url"
-
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -240,7 +238,25 @@ func getFileTypeFromBytes(fileType []byte) (string, error) {
 
 	return fileExt, nil
 }
+func hashForward(textContent string, images []file, videos []file) string {
+	var _images []string
+	var _videos []string
+	for _, image := range images {
+		_images = append(_images, image.Path)
+	}
+	for _, video := range videos {
+		_videos = append(_videos, video.Path)
+	}
+	sort.Strings(_images)
+	sort.Strings(_videos)
+	hash := sha1.New()
+	hash.Write([]byte(strings.Join(_images, "")))
+	hash.Write([]byte(strings.Join(_videos, "")))
+	hash.Write([]byte(textContent))
 
+	hashStr := hex.EncodeToString(hash.Sum(nil))
+	return hashStr
+}
 func Init() {
 	db := &sqlite.Sqlite{DBPath: "spider.db"}
 	err := db.Open(time.Minute)
@@ -252,13 +268,80 @@ func Init() {
 	if err != nil {
 		panic(err)
 	}
+	_, err = db.DB.Exec(`
+create table if not exists forward_hash
+(
+    forward_id text not null,
+    hash       text not null,
+    constraint forward_hash_pk
+        primary key (hash, forward_id)
+);
+
+create table if not exists digests
+(
+    hash   text not null
+        constraint digests_pk
+            primary key,
+    digest text not null
+);
+
+`)
+	if err != nil {
+		panic(err)
+	}
+	forwardRegExp := regexp.MustCompile(`\[CQ:forward,id=([a-zA-Z0-9/+\S]+)(,json=.*)?]`)
+	replyRegExp := regexp.MustCompile(`\[CQ:reply,id=(\d+)].*`)
+	zero.OnMessage(zero.SuperUserPermission).Handle(func(ctx *zero.Ctx) {
+		plainText := strings.TrimSpace(ctx.ExtractPlainText())
+		logrus.Debugf("[spider] msg %s", plainText)
+		if !strings.HasPrefix(plainText, zero.BotConfig.CommandPrefix+"digest") {
+			return
+		}
+		if !replyRegExp.MatchString(ctx.MessageString()) {
+			logrus.Debugf("[spider] regex not match %s", ctx.MessageString())
+			return
+		}
+		digest := plainText[len(zero.BotConfig.CommandPrefix+"digest"):]
+
+		rsp := ctx.CallAction("get_msg", zero.Params{
+			"message_id": replyRegExp.FindStringSubmatch(ctx.MessageString())[1],
+		}).Data
+		fmt.Println(rsp.String())
+		msg := ctx.GetMessage(replyRegExp.FindStringSubmatch(ctx.MessageString())[1])
+		if msg.MessageId.ID() == 0 {
+			ctx.Send(fmt.Sprintf("[ERROR]:id为0，未找到消息"))
+			return
+		}
+		forwardId := msg.Elements[0].Data["id"]
+		if !db.CanQuery("select * from forward_hash where forward_id = ?", forwardId) {
+			ctx.Send(fmt.Sprintf("[ERROR]:数据库中不存在该转发消息，请先尝试重新转发"))
+			return
+		}
+		hashStr, err := sqlite.Query[string](db, "select hash from forward_hash where forward_id = ?", forwardId)
+		if err != nil {
+			ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
+			return
+		}
+		_, err = db.DB.Exec("replace into digests(hash,digest) values (?,?)", hashStr, digest)
+		if err != nil {
+			ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
+			return
+		}
+		logrus.Infof("[INFO]:设置成功, %s => %s", hashStr, digest)
+		ctx.Send(fmt.Sprintf("[INFO]:设置成功"))
+	})
 	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
 		//println(string(ctx.Event.NativeMessage))
 		var images = []file{}
 		var videos = []file{}
 		var links = []string{}
 		var magnets = []string{}
+		var textContent = ""
 		res := gjson.ParseBytes(ctx.Event.NativeMessage)
+		var forwardMsg bool = false
+		if forwardRegExp.MatchString(ctx.MessageString()) {
+			forwardMsg = true
+		}
 		for _, result := range res.Array() {
 			msgType := result.Get("type").String()
 			switch msgType {
@@ -273,6 +356,7 @@ func Init() {
 						if res.Get("type").String() == "TextEntity" {
 							s := res.Get("Text").String()
 							println(s)
+							textContent += s
 							var urlRegxp, _ = regexp.Compile("https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)")
 							allString := urlRegxp.FindAllString(s, -1)
 							for _, s2 := range allString {
@@ -301,6 +385,7 @@ func Init() {
 						}
 					})
 			case "text":
+				textContent += result.Get("data.text").String()
 				continue
 			case "image":
 				u := result.Get("data.url").String()
@@ -329,6 +414,24 @@ func Init() {
 		videos = removeDuplicatesFile(videos)
 		links = removeDuplicates(links)
 		magnets = removeDuplicates(magnets)
+		var send = ""
+		var forwardHash = ""
+		if forwardMsg {
+			id := forwardRegExp.FindStringSubmatch(ctx.Event.Message.CQCode())[1]
+			forwardHash = hashForward(textContent, images, videos)
+			if db.CanQuery("select * from digests where hash=?", forwardHash) {
+				query, err := sqlite.Query[string](db, "select digest from digests where hash=?")
+				if err == nil {
+					send += query
+				}
+				println(query)
+			}
+			if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", id, forwardHash) {
+				return
+			} else {
+				db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", id, forwardHash)
+			}
+		}
 		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
 			return
 		}
@@ -351,7 +454,6 @@ func Init() {
 			ID:   info.Id,
 			Name: string(marshal),
 		})
-		var send = ""
 		if len(info.Links)+len(info.Magnets)+len(info.Videos)+len(info.Images) != 0 {
 			send = fmt.Sprintf("省流:%d条链接,%d条🧲,%d条视频,%d条图片\n", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))
 		}
@@ -360,6 +462,7 @@ func Init() {
 		}
 		logrus.Infof("ctx.Event.GroupID %d\n", ctx.Event.GroupID)
 		if len(send) > 0 {
+			send = fmt.Sprintf("%s %s", forwardHash, send)
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(send))
 		}
 		// download
@@ -367,22 +470,22 @@ func Init() {
 			goto sendLinkEnd
 		}
 		{
-			var base64ed []string
-			md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-			abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
-			if _, err := os.Stat(abs); err != nil {
-				goto sendLinkEnd
-			}
-			for _, link := range info.Links {
-				// avoid content audit
-				base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
-			}
-			if len(base64ed) != 0 {
-				f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
-				_, _ = f.WriteString(strings.Join(base64ed, "\n"))
-				f.Close()
-				// not upload
-			}
+			//var base64ed []string
+			//md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
+			//abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
+			//if _, err := os.Stat(abs); err != nil {
+			//	goto sendLinkEnd
+			//}
+			//for _, link := range info.Links {
+			//	// avoid content audit
+			//	base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
+			//}
+			//if len(base64ed) != 0 {
+			//	f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
+			//	_, _ = f.WriteString(strings.Join(base64ed, "\n"))
+			//	f.Close()
+			//	// not upload
+			//}
 		}
 	sendLinkEnd:
 		var oc = make(chan string, len(info.Images))
@@ -420,40 +523,40 @@ func Init() {
 				return
 			}
 			sort.Strings(imgFiles)
-			md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
-			imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
-			imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				panic(err)
-				return
-			}
-			_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
-			imgFileList.Close()
-			if err != nil {
-				panic(err)
-				return
-			}
-
-			imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
-			cmd :=
-				exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Start()
-			if err != nil {
-				cmd.Wait()
-				err = os.Remove(imgFileListPath)
-				if err != nil {
-					println(err.Error())
-				}
-				//upload no
-				//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
-				//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
-				//	if r.RetCode != 0 {
-				//		logrus.Warn("returns", r.RetCode)
-				//	}
-				//}
-			}
+			//md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
+			//imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
+			//imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
+			//if err != nil {
+			//	panic(err)
+			//	return
+			//}
+			//_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
+			//imgFileList.Close()
+			//if err != nil {
+			//	panic(err)
+			//	return
+			//}
+			//
+			//imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
+			//cmd :=
+			//	exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
+			//cmd.Stdout = os.Stdout
+			//cmd.Stderr = os.Stderr
+			//err = cmd.Start()
+			//if err != nil {
+			//	cmd.Wait()
+			//	err = os.Remove(imgFileListPath)
+			//	if err != nil {
+			//		println(err.Error())
+			//	}
+			//	//upload no
+			//	//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
+			//	//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
+			//	//	if r.RetCode != 0 {
+			//	//		logrus.Warn("returns", r.RetCode)
+			//	//	}
+			//	//}
+			//}
 		}
 		{
 			client := http.Client{}
