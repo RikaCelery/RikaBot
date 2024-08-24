@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-var lastValidatedRKey = ""
+var LastValidatedRKey = ""
 
 type row struct {
 	ID   int // pk
@@ -88,7 +88,7 @@ retry:
 
 		// 获取查询参数
 		queryParams := parsedURL.Query()
-		queryParams.Set("rkey", lastValidatedRKey)
+		queryParams.Set("rkey", LastValidatedRKey)
 		// 构造新的 URL
 		parsedURL.RawQuery = queryParams.Encode()
 		imageURL = parsedURL.String()
@@ -123,7 +123,7 @@ retry:
 	// 获取查询参数
 	queryParams := parsedURL.Query()
 	// 获取 rkey 参数的值
-	lastValidatedRKey = queryParams.Get("rkey")
+	LastValidatedRKey = queryParams.Get("rkey")
 
 	// 创建一个 MD5 哈希对象
 	hasher := md5.New()

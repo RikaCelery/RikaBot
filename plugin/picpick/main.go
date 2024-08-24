@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/spider"
 	"github.com/FloatTech/floatbox/math"
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -20,6 +21,7 @@ import (
 	"image"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -455,7 +457,16 @@ func init() {
 }
 
 func downloadToMd5File(client *http.Client, folder string, link string) (string, string, string, error) {
-	resp, err := client.Get(link)
+	parsedURL, _ := url.Parse(link)
+
+	// 获取查询参数
+	queryParams := parsedURL.Query()
+	queryParams.Set("rkey", spider.LastValidatedRKey)
+	// 构造新的 URL
+	parsedURL.RawQuery = queryParams.Encode()
+	imageURL := parsedURL.String()
+	logrus.Infof("update image url %s", imageURL)
+	resp, err := client.Get(imageURL)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -470,7 +481,7 @@ func downloadToMd5File(client *http.Client, folder string, link string) (string,
 	md5Hex := hex.EncodeToString(hashMd5.Sum(nil))
 	img, format, err := image.Decode(bytes.NewReader(buffer.Bytes()))
 	if err != nil {
-		logrus.Errorf("decode image error %v %v\n%v", err.Error(), link, hex.Dump(buffer.Bytes()[:math.Min(buffer.Len(), 20)]))
+		logrus.Errorf("decode image error %v %v\n%v", err.Error(), imageURL, hex.Dump(buffer.Bytes()[:math.Min(buffer.Len(), 20)]))
 		return "", "", "", err
 	}
 
