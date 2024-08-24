@@ -289,7 +289,6 @@ create table if not exists digests
 	if err != nil {
 		panic(err)
 	}
-	forwardRegExp := regexp.MustCompile(`\[CQ:forward,id=([a-zA-Z0-9/+\S]+)(,json=.*)?]`)
 	replyRegExp := regexp.MustCompile(`\[CQ:reply,id=(\d+)].*`)
 	zero.OnMessage(zero.SuperUserPermission).Handle(func(ctx *zero.Ctx) {
 		plainText := strings.TrimSpace(ctx.ExtractPlainText())
@@ -301,7 +300,7 @@ create table if not exists digests
 			logrus.Debugf("[spider] regex not match %s", ctx.MessageString())
 			return
 		}
-		digest := plainText[len(zero.BotConfig.CommandPrefix+"digest"):]
+		digest := strings.TrimSpace(plainText[len(zero.BotConfig.CommandPrefix+"digest"):])
 
 		rsp := ctx.CallAction("get_msg", zero.Params{
 			"message_id": replyRegExp.FindStringSubmatch(ctx.MessageString())[1],
@@ -331,22 +330,21 @@ create table if not exists digests
 		ctx.Send(fmt.Sprintf("[INFO]:设置成功"))
 	})
 	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
-		//println(string(ctx.Event.NativeMessage))
-		var images = []file{}
-		var videos = []file{}
-		var links = []string{}
-		var magnets = []string{}
+		var images []file
+		var videos []file
+		var links []string
+		var magnets []string
 		var textContent = ""
 		res := gjson.ParseBytes(ctx.Event.NativeMessage)
-		var forwardMsg bool = false
-		if forwardRegExp.MatchString(ctx.MessageString()) {
-			forwardMsg = true
-		}
+		var forwardMsg = false
+		var forwardId string
+
 		for _, result := range res.Array() {
 			msgType := result.Get("type").String()
 			switch msgType {
 			case "forward":
-				//t := result.Get("json.type").String()
+				forwardMsg = true
+				forwardId = result.Get("data.id").String()
 				parse(result.Get("data.json"),
 					[]string{
 						"TextEntity",
@@ -355,7 +353,6 @@ create table if not exists digests
 					}, func(res gjson.Result) {
 						if res.Get("type").String() == "TextEntity" {
 							s := res.Get("Text").String()
-							println(s)
 							textContent += s
 							var urlRegxp, _ = regexp.Compile("https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)")
 							allString := urlRegxp.FindAllString(s, -1)
@@ -417,23 +414,20 @@ create table if not exists digests
 		var send = ""
 		var forwardHash = ""
 		if forwardMsg {
-			id := forwardRegExp.FindStringSubmatch(ctx.Event.Message.CQCode())[1]
 			forwardHash = hashForward(textContent, images, videos)
-			if db.CanQuery("select * from digests where hash=?", forwardHash) {
-				query, err := sqlite.Query[string](db, "select digest from digests where hash=?")
+			if db.CanQuery("select * from digests where hash = ?", forwardHash) {
+				query, err := sqlite.Query[string](db, "select digest from digests where hash = ? ", forwardHash)
 				if err == nil {
-					send += query
+					logrus.Infof("[spider] digest %s", query)
+					send += fmt.Sprintf("省流: \n%s\n", query)
+				} else {
+					logrus.Errorf("[spider] %v", err)
 				}
-				println(query)
 			}
-			if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", id, forwardHash) {
-				return
+			if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash) {
 			} else {
-				db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", id, forwardHash)
+				db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash)
 			}
-		}
-		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
-			return
 		}
 		info := forwardInfo{
 			Id:      int(ctx.Event.MessageID.(int64)),
@@ -443,10 +437,28 @@ create table if not exists digests
 			Videos:  videos,
 			RawJson: string(ctx.Event.NativeMessage),
 		}
+		if len(info.Links) != 0 {
+			send += fmt.Sprintf("%d条链接 ", len(info.Links))
+		}
+		if len(info.Videos) != 0 {
+			send += fmt.Sprintf("%d条视频 ", len(info.Videos))
+		}
+		if len(info.Images) != 0 {
+			send += fmt.Sprintf("%d条图片 ", len(info.Images))
+		}
+		if len(info.Magnets) != 0 {
+			send += "🧲:\n" + strings.Join(info.Magnets, "\n")
+		}
+		if len(send) > 0 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
+		}
+		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
+			return
+		}
+
 		marshal, _ := json.Marshal(info)
 		var r row
 		err = db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.Id))
-
 		if err == nil {
 			db.Del("infos", fmt.Sprintf("where ID=%d", info.Id))
 		}
@@ -454,17 +466,6 @@ create table if not exists digests
 			ID:   info.Id,
 			Name: string(marshal),
 		})
-		if len(info.Links)+len(info.Magnets)+len(info.Videos)+len(info.Images) != 0 {
-			send = fmt.Sprintf("省流:%d条链接,%d条🧲,%d条视频,%d条图片\n", len(info.Links), len(info.Magnets), len(info.Videos), len(info.Images))
-		}
-		if len(info.Magnets) != 0 {
-			send += "🧲:\n" + strings.Join(info.Magnets, "\n")
-		}
-		logrus.Infof("ctx.Event.GroupID %d\n", ctx.Event.GroupID)
-		if len(send) > 0 {
-			send = fmt.Sprintf("%s %s", forwardHash, send)
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(send))
-		}
 		// download
 		if len(info.Links) == 0 {
 			goto sendLinkEnd
