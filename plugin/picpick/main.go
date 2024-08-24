@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FloatTech/floatbox/math"
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
@@ -349,8 +351,17 @@ func init() {
 				msg := ctx.GetMessage(segment.Data["id"])
 				for _, element := range msg.Elements {
 					if element.Type == "image" {
-						fileName, hashMd5, phash, err := downloadToMd5File(client, engine.DataFolder(), element.Data["url"])
+						link, ok := element.Data["file"]
+						if !ok || link == "" {
+							link = element.Data["url"]
+						}
+						if strings.HasPrefix(link, "http://gchat.qpic.cn/gchatpic_new") || link == "" { // lgr bug
+							continue
+						}
+						fileName, hashMd5, phash, err := downloadToMd5File(client, engine.DataFolder(), link)
 						if err != nil {
+							marshal, _ := json.Marshal(element)
+							println(string(marshal))
 							ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
 							return
 						}
@@ -459,6 +470,7 @@ func downloadToMd5File(client *http.Client, folder string, link string) (string,
 	md5Hex := hex.EncodeToString(hashMd5.Sum(nil))
 	img, format, err := image.Decode(bytes.NewReader(buffer.Bytes()))
 	if err != nil {
+		logrus.Errorf("decode image error %v %v\n%v", err.Error(), link, hex.Dump(buffer.Bytes()[:math.Min(buffer.Len(), 20)]))
 		return "", "", "", err
 	}
 
