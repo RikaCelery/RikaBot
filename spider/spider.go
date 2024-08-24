@@ -3,9 +3,9 @@ package spider
 
 import (
 	"crypto/md5"
-	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	sqlite "github.com/FloatTech/sqlite"
 	"github.com/gabriel-vasile/mimetype"
@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,8 +43,28 @@ type forwardInfo struct {
 	RawJson string
 }
 type file struct {
-	Path string
-	Url  string
+	Path      string
+	ImageSize int64
+	VideoHash string
+	Url       string
+}
+
+func (f *file) Identity() string {
+	if f.VideoHash != "" {
+		return f.VideoHash
+	} else if f.ImageSize != 0 {
+		return strconv.FormatInt(f.ImageSize, 10)
+	} else {
+		return f.Path
+	}
+}
+
+type downloadPathInfo struct {
+	Url   string
+	Type  string
+	Hash  string
+	PHash string
+	Path  string
 }
 
 func removeDuplicates(slice []string) []string {
@@ -75,6 +96,7 @@ func removeDuplicatesFile(slice []file) []file {
 }
 
 var caches = map[string]bool{}
+var client = http.Client{}
 
 func downloadImageFromURL(imageURL string, oc chan string) error {
 	var retryed = 0
@@ -96,7 +118,7 @@ retry:
 	//	return nil
 	//}
 	// 发送HTTP请求下载图片
-	resp, err := http.Get(imageURL)
+	resp, err := client.Get(imageURL)
 	if err != nil {
 		return fmt.Errorf("Error downloading image: %v", err)
 	}
@@ -238,28 +260,41 @@ func getFileTypeFromBytes(fileType []byte) (string, error) {
 
 	return fileExt, nil
 }
-func hashForward(textContent string, images []file, videos []file) string {
-	var _images []string
-	var _videos []string
-	for _, image := range images {
-		_images = append(_images, image.Path)
-	}
-	for _, video := range videos {
-		_videos = append(_videos, video.Path)
-	}
-	sort.Strings(_images)
-	sort.Strings(_videos)
-	hash := sha1.New()
-	hash.Write([]byte(strings.Join(_images, "")))
-	hash.Write([]byte(strings.Join(_videos, "")))
-	hash.Write([]byte(textContent))
 
-	hashStr := hex.EncodeToString(hash.Sum(nil))
-	return hashStr
+var downloadDb *sqlite.Sqlite
+
+func storeImageHashToDB(filename string) {
+
+}
+func getDownloadHash(Url string) (phash string, hash string, err error) {
+	if !downloadDb.CanFind("files", "where Url = ?", Url) {
+		return "", "", errors.New("file not downloaded")
+	}
+	info := downloadPathInfo{}
+	err = downloadDb.Find("files", &info, "where Url = ?", Url)
+	if err != nil {
+		return "", "", err
+	}
+	phash = info.PHash
+	hash = info.Hash
+	return
+}
+func hasHashStored(Url string) bool {
+	return downloadDb.CanFind("files", "where Url = ?", Url)
 }
 func Init() {
 	db := &sqlite.Sqlite{DBPath: "spider.db"}
+	downloadDb = &sqlite.Sqlite{DBPath: "downloadDb.db"}
 	err := db.Open(time.Minute)
+	if err != nil {
+		panic(err)
+	}
+	err = downloadDb.Open(time.Minute)
+	if err != nil {
+		panic(err)
+	}
+
+	err = downloadDb.Create("downloads", &downloadPathInfo{})
 	if err != nil {
 		panic(err)
 	}
@@ -330,276 +365,305 @@ create table if not exists digests
 		ctx.Send(fmt.Sprintf("[INFO]:设置成功"))
 	})
 	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
-		var images []file
-		var videos []file
-		var links []string
-		var magnets []string
-		var textContent = ""
-		res := gjson.ParseBytes(ctx.Event.NativeMessage)
-		var forwardMsg = false
-		var forwardId string
+		Handle(db, ctx)
+	})
+}
 
-		for _, result := range res.Array() {
-			msgType := result.Get("type").String()
-			switch msgType {
-			case "forward":
-				forwardMsg = true
-				forwardId = result.Get("data.id").String()
-				parse(result.Get("data.json"),
-					[]string{
-						"TextEntity",
-						"ImageEntity",
-						"VideoEntity",
-					}, func(res gjson.Result) {
-						if res.Get("type").String() == "TextEntity" {
-							s := res.Get("Text").String()
-							textContent += s
-							var urlRegxp, _ = regexp.Compile("https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)")
-							allString := urlRegxp.FindAllString(s, -1)
-							for _, s2 := range allString {
-								links = append(links, s2)
-							}
-							var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})")
-							allString = magnetRegexp.FindAllString(s, -1)
-							for _, s2 := range allString {
-								magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
-							}
-						} else if res.Get("type").String() == "ImageEntity" {
-							println(res.Get("ImageUrl").String())
-							images = append(images,
-								file{
-									Path: res.Get("FilePath").String(),
-									Url:  res.Get("ImageUrl").String(),
-								})
-						} else {
-							println(res.Get("ImageUrl").String())
-							videos = append(videos,
-								file{
-									Path: res.Get("FilePath").String(),
-									Url:  res.Get("VideoUrl").String(),
-								})
-
-						}
-					})
-			case "text":
-				textContent += result.Get("data.text").String()
-				continue
-			case "image":
-				u := result.Get("data.url").String()
-				err := downloadImageFromURL(u, nil)
-				if err != nil {
-					logrus.Errorln(err.Error())
-					continue
-				}
-			case "video":
-				u := result.Get("data.url").String()
-				err := downloadVideoFromURL(u, nil)
-				if err != nil {
-					logrus.Errorln(err.Error())
-					continue
-				}
-				continue
-			case "reply":
-			case "at":
-
-			default:
-				logrus.Infoln(msgType)
-				continue
-			}
-		}
-		images = removeDuplicatesFile(images)
-		videos = removeDuplicatesFile(videos)
-		links = removeDuplicates(links)
-		magnets = removeDuplicates(magnets)
-		var send = ""
-		var forwardHash = ""
-		if forwardMsg {
-			forwardHash = hashForward(textContent, images, videos)
-			if db.CanQuery("select * from digests where hash = ?", forwardHash) {
-				query, err := sqlite.Query[string](db, "select digest from digests where hash = ? ", forwardHash)
-				if err == nil {
-					logrus.Infof("[spider] digest %s", query)
-					send += fmt.Sprintf("省流: \n%s\n", query)
-				} else {
-					logrus.Errorf("[spider] %v", err)
-				}
-			}
-			if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash) {
+func hashForward(ctx *zero.Ctx, textContent string, fInfo *forwardInfo, download bool) string {
+	hash := md5.New()
+	var oc = make(chan string, 1)
+	for _, image := range fInfo.Images {
+		if hasHashStored(image.Url) {
+			phash, _, _ := getDownloadHash(image.Url)
+			textContent += "\n" + phash
+		} else if download {
+			err := downloadImageFromURL(image.Url, oc)
+			if err == nil {
+				storeImageHashToDB(<-oc)
 			} else {
-				db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash)
+				logrus.Error(err)
+				textContent += "\n" + image.Identity()
+			}
+		} else {
+			textContent += "\n" + image.Identity()
+		}
+	}
+	for _, video := range fInfo.Videos {
+		textContent += "\nv:" + video.Identity()
+	}
+	hash.Write([]byte(textContent))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
+	var images []file
+	var videos []file
+	var links []string
+	var magnets []string
+	var textContent = ""
+	res := gjson.ParseBytes(ctx.Event.NativeMessage)
+	var forwardMsg = false
+	var forwardId string
+
+	for _, result := range res.Array() {
+		msgType := result.Get("type").String()
+		switch msgType {
+		case "forward":
+			forwardMsg = true
+			forwardId = result.Get("data.id").String()
+			parse(result.Get("data.json"),
+				[]string{
+					"TextEntity",
+					"ImageEntity",
+					"VideoEntity",
+				}, func(res gjson.Result) {
+					if res.Get("type").String() == "TextEntity" {
+						s := res.Get("Text").String()
+						textContent += s
+						var urlRegxp, _ = regexp.Compile("https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)")
+						allString := urlRegxp.FindAllString(s, -1)
+						for _, s2 := range allString {
+							links = append(links, s2)
+						}
+						var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})")
+						allString = magnetRegexp.FindAllString(s, -1)
+						for _, s2 := range allString {
+							magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
+						}
+					} else if res.Get("type").String() == "ImageEntity" {
+						println(res.Get("ImageUrl").String())
+						images = append(images,
+							file{
+								Path:      res.Get("FilePath").String(),
+								Url:       res.Get("ImageUrl").String(),
+								ImageSize: res.Get("ImageSize").Int(),
+							})
+					} else {
+						println(res.Get("ImageUrl").String())
+						videos = append(videos,
+							file{
+								Path: res.Get("FilePath").String(),
+								Url:  res.Get("VideoUrl").String(),
+							})
+
+					}
+				})
+		case "text":
+			textContent += result.Get("data.text").String()
+			continue
+		case "image":
+			u := result.Get("data.url").String()
+			err := downloadImageFromURL(u, nil)
+			if err != nil {
+				logrus.Errorln(err.Error())
+				continue
+			}
+		case "video":
+			u := result.Get("data.url").String()
+			err := downloadVideoFromURL(u, nil)
+			if err != nil {
+				logrus.Errorln(err.Error())
+				continue
+			}
+			continue
+		case "reply":
+		case "at":
+
+		default:
+			logrus.Infoln(msgType)
+			continue
+		}
+	}
+	images = removeDuplicatesFile(images)
+	videos = removeDuplicatesFile(videos)
+	links = removeDuplicates(links)
+	magnets = removeDuplicates(magnets)
+	var send = ""
+	var forwardHash = ""
+	info := &forwardInfo{
+		Id:      int(ctx.Event.MessageID.(int64)),
+		Images:  images,
+		Links:   links,
+		Magnets: magnets,
+		Videos:  videos,
+		RawJson: string(ctx.Event.NativeMessage),
+	}
+	if forwardMsg {
+		forwardHash = hashForward(ctx, textContent, info)
+		if db.CanQuery("select * from digests where hash = ?", forwardHash) {
+			query, err := sqlite.Query[string](db, "select digest from digests where hash = ? ", forwardHash)
+			if err == nil {
+				logrus.Infof("[spider] digest %s", query)
+				send += fmt.Sprintf("省流: \n%s\n", query)
+			} else {
+				logrus.Errorf("[spider] %v", err)
 			}
 		}
-		info := forwardInfo{
-			Id:      int(ctx.Event.MessageID.(int64)),
-			Images:  images,
-			Links:   links,
-			Magnets: magnets,
-			Videos:  videos,
-			RawJson: string(ctx.Event.NativeMessage),
+		if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash) {
+		} else {
+			db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash)
 		}
-		if len(info.Links) != 0 {
-			send += fmt.Sprintf("%d条链接 ", len(info.Links))
+	}
+	if len(info.Links) != 0 {
+		send += fmt.Sprintf("%d条链接 ", len(info.Links))
+	}
+	if len(info.Videos) != 0 {
+		send += fmt.Sprintf("%d条视频 ", len(info.Videos))
+	}
+	if len(info.Images) != 0 {
+		send += fmt.Sprintf("%d条图片 ", len(info.Images))
+	}
+	if len(info.Magnets) != 0 {
+		send += "🧲:\n" + strings.Join(info.Magnets, "\n")
+	}
+	if len(send) > 0 {
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
+	}
+	if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
+		return
+	}
+
+	marshal, _ := json.Marshal(info)
+	var r row
+	err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.Id))
+	if err == nil {
+		db.Del("infos", fmt.Sprintf("where ID=%d", info.Id))
+	}
+	db.Insert("infos", &row{
+		ID:   info.Id,
+		Name: string(marshal),
+	})
+	// download
+	if len(info.Links) == 0 {
+		goto sendLinkEnd
+	}
+	{
+		//var base64ed []string
+		//md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
+		//abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
+		//if _, err := os.Stat(abs); err != nil {
+		//	goto sendLinkEnd
+		//}
+		//for _, link := range info.Links {
+		//	// avoid content audit
+		//	base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
+		//}
+		//if len(base64ed) != 0 {
+		//	f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
+		//	_, _ = f.WriteString(strings.Join(base64ed, "\n"))
+		//	f.Close()
+		//	// not upload
+		//}
+	}
+sendLinkEnd:
+	var oc = make(chan string, len(info.Images))
+	if len(info.Images) != 0 {
+		//client := http.Client{}
+		var wg = sync.WaitGroup{}
+		var imgFiles []string
+		for _, image := range info.Images {
+			wg.Add(1)
+			image := image
+			go func() {
+				defer func() {
+					wg.Done()
+					if r := recover(); r != nil {
+					}
+				}()
+				err := downloadImageFromURL(image.Url, oc)
+				if err != nil {
+					logrus.Warnln("download Failed", image, err.Error())
+					return
+				}
+				logrus.Infoln("download OK", image)
+			}()
 		}
-		if len(info.Videos) != 0 {
-			send += fmt.Sprintf("%d条视频 ", len(info.Videos))
+		wg.Wait()
+		close(oc)
+		imgFiles = make([]string, 0)
+		for s := range oc {
+			imgFiles = append(imgFiles, s)
 		}
-		if len(info.Images) != 0 {
-			send += fmt.Sprintf("%d条图片 ", len(info.Images))
-		}
-		if len(info.Magnets) != 0 {
-			send += "🧲:\n" + strings.Join(info.Magnets, "\n")
-		}
-		if len(send) > 0 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
-		}
-		if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
+		imgFiles = removeDuplicates(imgFiles)
+		if len(imgFiles) == 0 {
+			logrus.Warn("No imgs.")
 			return
 		}
+		sort.Strings(imgFiles)
+		//md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
+		//imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
+		//imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
+		//if err != nil {
+		//	panic(err)
+		//	return
+		//}
+		//_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
+		//imgFileList.Close()
+		//if err != nil {
+		//	panic(err)
+		//	return
+		//}
+		//
+		//imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
+		//cmd :=
+		//	exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
+		//cmd.Stdout = os.Stdout
+		//cmd.Stderr = os.Stderr
+		//err = cmd.Start()
+		//if err != nil {
+		//	cmd.Wait()
+		//	err = os.Remove(imgFileListPath)
+		//	if err != nil {
+		//		println(err.Error())
+		//	}
+		//	//upload no
+		//	//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
+		//	//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
+		//	//	if r.RetCode != 0 {
+		//	//		logrus.Warn("returns", r.RetCode)
+		//	//	}
+		//	//}
+		//}
+	}
+	{
+		var wg = sync.WaitGroup{}
+		for _, video := range info.Videos {
+			video := video
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				os.Mkdir("videotmp", 0750)
+				fname := path.Join("videotmp", video.Path)
+				if _, err := os.Stat(fname); err == nil {
+					logrus.Infoln("exist", video)
+					return
 
-		marshal, _ := json.Marshal(info)
-		var r row
-		err = db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.Id))
-		if err == nil {
-			db.Del("infos", fmt.Sprintf("where ID=%d", info.Id))
-		}
-		db.Insert("infos", &row{
-			ID:   info.Id,
-			Name: string(marshal),
-		})
-		// download
-		if len(info.Links) == 0 {
-			goto sendLinkEnd
-		}
-		{
-			//var base64ed []string
-			//md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-			//abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
-			//if _, err := os.Stat(abs); err != nil {
-			//	goto sendLinkEnd
-			//}
-			//for _, link := range info.Links {
-			//	// avoid content audit
-			//	base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
-			//}
-			//if len(base64ed) != 0 {
-			//	f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
-			//	_, _ = f.WriteString(strings.Join(base64ed, "\n"))
-			//	f.Close()
-			//	// not upload
-			//}
-		}
-	sendLinkEnd:
-		var oc = make(chan string, len(info.Images))
-		if len(info.Images) != 0 {
-			//client := http.Client{}
-			var wg = sync.WaitGroup{}
-			var imgFiles []string
-			for _, image := range info.Images {
-				wg.Add(1)
-				image := image
-				go func() {
-					defer func() {
-						wg.Done()
-						if r := recover(); r != nil {
+				}
 
-						}
-					}()
-					err := downloadImageFromURL(image.Url, oc)
-					if err != nil {
-						logrus.Warnln("download Failed", image, err.Error())
-						return
-					}
-					logrus.Infoln("download OK", image)
-				}()
-			}
-			wg.Wait()
-			close(oc)
-			imgFiles = make([]string, 0)
-			for s := range oc {
-				imgFiles = append(imgFiles, s)
-			}
-			imgFiles = removeDuplicates(imgFiles)
-			if len(imgFiles) == 0 {
-				logrus.Warn("No imgs.")
-				return
-			}
-			sort.Strings(imgFiles)
-			//md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
-			//imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
-			//imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
-			//if err != nil {
-			//	panic(err)
-			//	return
-			//}
-			//_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
-			//imgFileList.Close()
-			//if err != nil {
-			//	panic(err)
-			//	return
-			//}
-			//
-			//imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
-			//cmd :=
-			//	exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
-			//cmd.Stdout = os.Stdout
-			//cmd.Stderr = os.Stderr
-			//err = cmd.Start()
-			//if err != nil {
-			//	cmd.Wait()
-			//	err = os.Remove(imgFileListPath)
-			//	if err != nil {
-			//		println(err.Error())
-			//	}
-			//	//upload no
-			//	//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
-			//	//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
-			//	//	if r.RetCode != 0 {
-			//	//		logrus.Warn("returns", r.RetCode)
-			//	//	}
-			//	//}
-			//}
-		}
-		{
-			client := http.Client{}
-			var wg = sync.WaitGroup{}
-			for _, video := range info.Videos {
-				video := video
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					os.Mkdir("videotmp", 0750)
-					fname := path.Join("videotmp", video.Path)
-					if _, err := os.Stat(fname); err == nil {
-						logrus.Infoln("exist", video)
-						return
-
-					}
-
-					resp, err2 := client.Get(video.Url)
-					if err2 != nil {
-						logrus.Warn(err2)
-						return
-					}
-					logrus.Infoln("download", video)
-					file, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
-					if err2 != nil {
-						return
-					}
-					//s, _ := filepath.Abs(fname)
-					_, err := io.Copy(file, resp.Body)
-					if err != nil {
-						file.Close()
-						os.Remove(fname)
-						logrus.Warnln("download Failed", video)
-						return
-					}
+				resp, err2 := client.Get(video.Url)
+				if err2 != nil {
+					logrus.Warn(err2)
+					return
+				}
+				logrus.Infoln("download", video)
+				file, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
+				if err2 != nil {
+					return
+				}
+				//s, _ := filepath.Abs(fname)
+				_, err := io.Copy(file, resp.Body)
+				if err != nil {
 					file.Close()
-					logrus.Infoln("download OK", video)
-				}()
+					os.Remove(fname)
+					logrus.Warnln("download Failed", video)
+					return
+				}
+				file.Close()
+				logrus.Infoln("download OK", video)
+			}()
 
-			}
 		}
-	})
+	}
 }
 
 func parse(result gjson.Result, filter []string, callback func(res gjson.Result)) {
@@ -644,5 +708,4 @@ func parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 		return
 	}
 	//logrus.Debugf("type: %s\n", t)
-
 }
