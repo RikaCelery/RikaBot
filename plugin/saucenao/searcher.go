@@ -116,7 +116,7 @@ func init() { // 插件主体
 			}
 		})
 	// 以图搜图
-	engine.OnKeywordGroup([]string{"以图搜图", "搜索图片", "以图识图", "source", "src?", "src？"}, zero.MustProvidePicture).SetBlock(true).
+	engine.OnPrefixGroup([]string{"以图搜图", "搜索图片", "以图识图", "source", "src?", "src？"}, zero.MustProvidePicture).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			// 开始搜索图片
 			pics, ok := ctx.State["image_url"].([]string)
