@@ -461,7 +461,9 @@ func downloadToMd5File(client *http.Client, folder string, link string) (string,
 
 	// 获取查询参数
 	queryParams := parsedURL.Query()
-	queryParams.Set("rkey", spider.LastValidatedRKey)
+	if spider.LastValidatedRKey != "" {
+		queryParams.Set("rkey", spider.LastValidatedRKey)
+	}
 	// 构造新的 URL
 	parsedURL.RawQuery = queryParams.Encode()
 	imageURL := parsedURL.String()
