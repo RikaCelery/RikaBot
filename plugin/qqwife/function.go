@@ -248,7 +248,7 @@ func init() {
 			)
 		})
 	// 做媒技能
-	engine.OnRegex(`^做媒\s?\[CQ:at,qq=(\d+)\]\s?\[CQ:at,qq=(\d+)\]`, zero.OnlyGroup, zero.AdminPermission, getdb, checkMatchmaker).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnRegex(`^做媒\s?\[CQ:at,(?:\S*,)?qq=(\d+)(?:,\S*)?\]\s*\[CQ:at,(?:\S*,)?qq=(\d+)(?:,\S*)?\]`, zero.OnlyGroup, zero.AdminPermission, getdb, checkMatchmaker).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			gid := ctx.Event.GroupID
 			uid := ctx.Event.UserID
