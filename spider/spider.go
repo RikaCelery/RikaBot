@@ -369,7 +369,7 @@ create table if not exists digests
 	if err != nil {
 		panic(err)
 	}
-	replyRegExp := regexp.MustCompile(`\[CQ:reply,id=(\d+)].*`)
+	replyRegExp := regexp.MustCompile(`\[CQ:reply,id=(-?\d+)].*`)
 	zero.OnMessage(zero.SuperUserPermission).Handle(func(ctx *zero.Ctx) {
 		plainText := strings.TrimSpace(ctx.ExtractPlainText())
 		logrus.Debugf("[spider] msg %s", plainText)
