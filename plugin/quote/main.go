@@ -169,7 +169,33 @@ func init() {
 				}
 				ctx.SendChain(message.ImageBytes(bytes))
 			} else {
-				history := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid))
+				hisMessages := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid)).Get("messages").Array()
+				hisMessages = hisMessages[len(hisMessages)-quoteArgs.Size:]
+				rss.Reverse(hisMessages)
+				if len(hisMessages) > 0 {
+					var i = 0
+					for i < len(hisMessages) {
+						chain := hisMessages[i]
+						//println(chain.String())
+						if replyId := chain.Get("message.0.data.id").Int(); chain.Get("message.0.type").String() == "reply" && replyId != 0 {
+							var contains = false
+							for j := i + 1; j < len(hisMessages); j++ {
+								if hisMessages[j].Get("message_id").Int() == replyId {
+									contains = true
+									break
+								}
+							}
+							if !contains {
+								rsp := ctx.CallAction("get_msg", zero.Params{
+									"message_id": replyId,
+								}).Data
+								hisMessages = append(hisMessages, rsp)
+							}
+						}
+						i++
+					}
+				}
+				rss.Reverse(hisMessages)
 				var body []*renderMessage
 				for _, chain := range hisMessages {
 					el := parseMessageChain(ctx, chain)
