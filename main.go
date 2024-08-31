@@ -203,10 +203,7 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/driver"
 	"github.com/wdvxdr1123/ZeroBot/message"
-
 	// webctrl "github.com/FloatTech/zbputils/control/web"
-
-	"github.com/FloatTech/ZeroBot-Plugin/kanban/banner"
 	// -----------------------以上为内置依赖，勿动------------------------ //
 )
 
@@ -328,7 +325,7 @@ func main() {
 	// 帮助
 	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单", "帮助"}, zero.OnlyToMe).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			ctx.SendChain(message.Text(banner.Banner, "Rika: v"+changeLog[0].Version+`
+			ctx.SendChain(message.Text("Rika: v" + changeLog[0].Version + `
 发送"/更新日志"查看 功能变化
 发送"@机器人 /服务列表"查看 bot 功能
 发送"@机器人 /用法 + 功能第一行英文名称"查看功能用法
