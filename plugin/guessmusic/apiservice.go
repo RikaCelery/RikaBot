@@ -136,7 +136,7 @@ func init() {
 				}
 			}
 		})
-	engine.OnRegex(`^歌单信息\s*((https:\/\/music\.163\.com\/#\/playlist\?id=)?(\d+)|http:\/\/music\.163\.com\/playlist\/(\d+).*)$`).SetBlock(true).Limit(ctxext.LimitByGroup).
+	engine.OnRegex(`^歌单信息\s*((https?://music\.163\.com/(?:#/)?playlist\?id=)?(\d+)|http://music\.163\.com/playlist/(\d+)).*$`).SetBlock(true).Limit(ctxext.LimitByGroup).
 		Handle(func(ctx *zero.Ctx) {
 			listID := ctx.State["regex_matched"].([]string)[3] + ctx.State["regex_matched"].([]string)[4]
 			_, err := strconv.ParseInt(listID, 10, 64)
@@ -170,7 +170,7 @@ func init() {
 				))
 		})
 	// 本地绑定网易云歌单ID
-	engine.OnRegex(`^(.*)绑定网易云\s*((https:\/\/music\.163\.com\/#\/playlist\?id=)?(\d+)|http:\/\/music\.163\.com\/playlist\/(\d+).*)$`, zero.SuperUserPermission).SetBlock(true).Limit(ctxext.LimitByGroup).
+	engine.OnRegex(`^(.*)绑定网易云\s*((https://music\.163\.com/(?:#/)?playlist\?id=)?(\d+)|http://music\.163\.com/playlist/(\d+)).*$`, zero.SuperUserPermission).SetBlock(true).Limit(ctxext.LimitByGroup).
 		Handle(func(ctx *zero.Ctx) {
 			listName := ctx.State["regex_matched"].([]string)[1]
 			listID := ctx.State["regex_matched"].([]string)[4] + ctx.State["regex_matched"].([]string)[5]
@@ -253,7 +253,7 @@ func init() {
 			}
 		})
 	// 下载歌曲到对应的歌单里面
-	engine.OnRegex(`^下载歌单\s*((https:\/\/music\.163\.com\/#\/playlist\?id=)?(\d+)|http:\/\/music\.163\.com\/playlist\/(\d+).*[^\s$])\s*到\s*(.*)$`, zero.SuperUserPermission).SetBlock(true).Limit(ctxext.LimitByGroup).
+	engine.OnRegex(`^下载歌单\s*((https://music\.163\.com/(?:#/)?playlist\?id=)?(\d+)|http://music\.163\.com/playlist/(\d+)).*[^\s$]\s*到\s*(.*)$`, zero.SuperUserPermission).SetBlock(true).Limit(ctxext.LimitByGroup).
 		Handle(func(ctx *zero.Ctx) {
 			keyword := ctx.State["regex_matched"].([]string)[3] + ctx.State["regex_matched"].([]string)[4]
 			listName := ctx.State["regex_matched"].([]string)[5]
