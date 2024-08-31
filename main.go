@@ -326,9 +326,14 @@ func main() {
 		rand.Seed(time.Now().UnixNano()) //nolint: staticcheck
 	}
 	// 帮助
-	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单"}, zero.OnlyToMe).SetBlock(true).
+	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单", "帮助"}, zero.OnlyToMe).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			ctx.SendChain(message.Text(banner.Banner, "\n管理发送\"/服务列表\"查看 bot 功能\n发送\"/用法 + 功能第一行英文名称\"查看功能用法"))
+			ctx.SendChain(message.Text(banner.Banner, "Rika: v"+changeLog[0].Version+`
+发送"/更新日志"查看 功能变化
+发送"@机器人 /服务列表"查看 bot 功能
+发送"@机器人 /用法 + 功能第一行英文名称"查看功能用法
+============================================
+感谢: github.com/FloatTech/ZeroBot-Plugin`))
 		})
 	//zero.OnFullMatch("查看zbp公告", zero.OnlyToMe, zero.AdminPermission).SetBlock(true).
 	//	Handle(func(ctx *zero.Ctx) {
