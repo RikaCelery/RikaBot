@@ -186,9 +186,9 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 		}
 		err := insert(&code{
 			Id:       -1,
-			Value:    args[1],
+			Value:    args[0],
 			Time:     time.Now().Unix(),
-			IsPublic: args[2] == "公开",
+			IsPublic: args[1] == "公开",
 			GroupId:  ctx.Event.GroupID,
 			Type:     ctx.State["command"].(string),
 		})
