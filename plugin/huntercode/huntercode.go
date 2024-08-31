@@ -79,6 +79,10 @@ func findFor(gid int64, codeType string) []*code {
 	if err == nil {
 		ret = append(ret, all...)
 	}
+	public, err := sql.FindAll[code](db, "codes", "where GroupId<>? and Type=? and IsPublic=?", gid, codeType, true)
+	if err == nil {
+		ret = append(ret, public...)
+	}
 	return ret
 }
 
