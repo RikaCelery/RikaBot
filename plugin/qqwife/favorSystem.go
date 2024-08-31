@@ -31,7 +31,7 @@ type favorability struct {
 
 func init() {
 	// 好感度系统
-	engine.OnRegex(`^查好感度\s*(\[CQ:at,qq=)?(\d+)`, zero.OnlyGroup, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnRegex(`^查好感度\s*(\[CQ:at,(?:\S*,)?qq=)?(\d+)`, zero.OnlyGroup, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			fiancee, _ := strconv.ParseInt(ctx.State["regex_matched"].([]string)[2], 10, 64)
 			uid := ctx.Event.UserID

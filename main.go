@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/quote"
 	"github.com/FloatTech/ZeroBot-Plugin/spider"
 	"github.com/FloatTech/floatbox/math"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
+	"net/http"
 
 	//"github.com/FloatTech/ZeroBot-Plugin/webctrl"
 	"math/rand"
@@ -326,9 +328,10 @@ func main() {
 	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单", "帮助"}, zero.OnlyToMe).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			ctx.SendChain(message.Text("Rika: v" + changeLog[0].Version + `
-发送"/更新日志"查看 功能变化
-发送"@机器人 /服务列表"查看 bot 功能
-发送"@机器人 /用法 + 功能第一行英文名称"查看功能用法
+发送 " /更新日志 " 查看 功能变化
+发送 " @机器人 /服务列表 " 查看全部功能
+发送 " @机器人 /用法 + 功能第一行英文名称 "查看功能用法
+主要功能文档：kdocs.cn/l/ctRhISA7rOcq
 ============================================
 感谢: github.com/FloatTech/ZeroBot-Plugin`))
 		})
@@ -337,6 +340,45 @@ func main() {
 	//		ctx.SendChain(message.Text(strings.ReplaceAll(kanban.Kanban(), "\t", "")))
 	//	})
 	spider.Init()
+	zero.OnCommand("report").SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		reply := ctx.Event.Message[0]
+		if reply.Type != "reply" {
+			ctx.SendChain(message.Text("请回复一条消息来反馈"))
+			return
+		}
+		atoi, _ := strconv.ParseInt(ctx.Event.Message[0].Data["id"], 10, 64)
+		report := ctx.GetGroupMessageHistory(ctx.Event.GroupID, atoi)
+		var body []*quote.RenderMessage
+		for _, chain := range report.Get("messages").Array() {
+			el := quote.ParseMessageChain(ctx, chain)
+			body = append(body, el)
+		}
+		report = ctx.GetGroupMessageHistory(ctx.Event.GroupID, report.Get("messages.@reverse.0.message_id").Int())
+		for _, chain := range report.Get("messages").Array() {
+			el := quote.ParseMessageChain(ctx, chain)
+			body = append(body, el)
+		}
+		report = ctx.GetGroupMessageHistory(ctx.Event.GroupID, report.Get("messages.@reverse.0.message_id").Int())
+		for _, chain := range report.Get("messages").Array() {
+			el := quote.ParseMessageChain(ctx, chain)
+			body = append(body, el)
+		}
+		marshal, err := json.Marshal(body)
+		if err != nil {
+			logrus.Warning("report:", err)
+			ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.Text(err.Error()))
+			return
+		}
+		err, bytes := quote.RenderHistoryImage(http.DefaultClient, string(marshal), false, 50)
+		if err != nil {
+			logrus.Warning("report:", err)
+			ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.Text(err.Error()))
+			return
+		}
+		ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.ImageBytes(bytes))
+		ctx.Send("已反馈")
+		logrus.Infof("reported")
+	})
 	zero.OnMessage(func(ctx *zero.Ctx) bool {
 		if len(ctx.Event.Message) == 0 || ctx.Event.Message[0].Type != "text" {
 			return false

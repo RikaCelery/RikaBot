@@ -26,12 +26,12 @@ type messageRenderStruct struct {
 	Data interface{} `json:"data"`
 }
 
-type renderMessage struct {
+type RenderMessage struct {
 	Name     string                `json:"name"`
 	Label    string                `json:"label,omitempty"`
 	Time     int64                 `json:"time"`
 	Qid      int64                 `json:"qid"`
-	Quote    *renderMessage        `json:"quote"`
+	Quote    *RenderMessage        `json:"quote"`
 	Messages []messageRenderStruct `json:"messages"`
 }
 
@@ -63,9 +63,9 @@ func newAtEl(minfo gjson.Result) *messageRenderStruct {
 		return &messageRenderStruct{Type: "at", Data: minfo.Get("id")}
 	}
 }
-func parseMessageChain(ctx *zero.Ctx, chain gjson.Result) *renderMessage {
+func ParseMessageChain(ctx *zero.Ctx, chain gjson.Result) *RenderMessage {
 	name, role := getSenderInfo(ctx, chain)
-	el := &renderMessage{
+	el := &RenderMessage{
 		Name:     name,
 		Label:    role,
 		Time:     chain.Get("time").Int(),
@@ -79,7 +79,7 @@ func parseMessageChain(ctx *zero.Ctx, chain gjson.Result) *renderMessage {
 			rsp := ctx.CallAction("get_msg", zero.Params{
 				"message_id": element.Get("data.id").Int(),
 			}).Data
-			el.Quote = parseMessageChain(ctx, rsp)
+			el.Quote = ParseMessageChain(ctx, rsp)
 		case "at":
 			// check if last element is reply element and replied uid == @uid
 			if i != 0 && chain.Get("message").Array()[i-1].Get("type").String() != "reply" {
@@ -196,9 +196,9 @@ func init() {
 					}
 				}
 				rss.Reverse(hisMessages)
-				var body []*renderMessage
+				var body []*RenderMessage
 				for _, chain := range hisMessages {
-					el := parseMessageChain(ctx, chain)
+					el := ParseMessageChain(ctx, chain)
 					body = append(body, el)
 				}
 				marshal, err := json.Marshal(body)
@@ -206,7 +206,7 @@ func init() {
 					ctx.SendChain(message.Text(err.Error()))
 					return
 				}
-				err, bytes := renderHistoryImage(client, string(marshal), &quoteArgs)
+				err, bytes := RenderHistoryImage(client, string(marshal), quoteArgs.GrayScale, 87)
 				if err != nil {
 					ctx.SendChain(message.Text(err.Error()))
 					return
@@ -216,20 +216,16 @@ func init() {
 		})
 }
 
-func renderHistoryImage(client *http.Client, j string, args *struct {
-	Size       int  `arg:"positional" default:"0" help:"不为零时渲染为历史消息记录"`
-	GrayScale  bool `arg:"-g" default:"false" help:"灰度滤镜，默认关闭(仅Size为0时生效)"`
-	Date       bool `arg:"-d" default:"false" help:"包含时间日期，默认关闭(仅Size为0时生效)"`
-	SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
-}) (error, []byte) {
+func RenderHistoryImage(client *http.Client, j string, GrayScale bool, q int) (error, []byte) {
 	postData := url.Values{}
 	postData.Set("messages", j)
-	p, _ := url.Parse("http://127.0.0.1:8888/message?dpi=F2X&fullPage&quality=90&fit-content=true")
-	if !args.GrayScale {
-		query := p.Query()
+	p, _ := url.Parse("http://127.0.0.1:8888/message?dpi=F2X&fullPage&fit-content=true")
+	query := p.Query()
+	query.Set("quality", strconv.Itoa(q))
+	if !GrayScale {
 		query.Set("color", "true")
-		p.RawQuery = query.Encode()
 	}
+	p.RawQuery = query.Encode()
 	logrus.Debugf("[%s] rendering %s", "quote", p.String())
 	response, err := client.Post(
 		p.String(),
