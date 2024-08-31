@@ -174,7 +174,7 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 	engine.OnCommandGroup([]string{"世界", "崛起"}, zero.OnlyGroup, zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
 		//TODO check format
 		if len(args) == 1 {
-			args = append(args, "公开")
+			args = append(args, "私密")
 		}
 		ctx.State["args"] = args
 		return true
