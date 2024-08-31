@@ -2,11 +2,13 @@ package guessmusic
 
 import (
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	wyy "github.com/FloatTech/AnimeAPI/neteasemusic"
@@ -373,6 +375,7 @@ func downloadlist(playlistID int64, musicPath string) error {
 		err = errors.Errorf("requset code : %d", parsed.Code)
 		return err
 	}
+	wg := sync.WaitGroup{}
 	for _, info := range parsed.Songs {
 		// 将"/"符号去除,不然无法生成文件
 		musicName := strings.ReplaceAll(info.Name, "/", "·")
@@ -400,15 +403,23 @@ func downloadlist(playlistID int64, musicPath string) error {
 		} else {
 			musicName += " - " + artistName
 		}
-		// 下载歌曲
-		err = wyy.DownloadMusic(musicID, musicName, musicPath)
-		if err == nil {
-			if cfg.Local {
-				// 下载歌词
-				_ = wyy.DownloadLrc(musicID, musicName, musicPath+"歌词/")
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// 下载歌曲
+			err := wyy.DownloadMusic(musicID, musicName, musicPath)
+			if err == nil {
+				log.Info("[guessmusic] download %s", musicName)
+				if cfg.Local {
+					// 下载歌词
+					_ = wyy.DownloadLrc(musicID, musicName, musicPath+"歌词/")
+				}
+			} else {
+				log.Warning("[guessmusic] download failed %s", musicName)
 			}
-		}
+		}()
 	}
+	wg.Wait()
 	return nil
 }
 
