@@ -6,6 +6,16 @@ type changeLogStruct struct {
 }
 
 var changeLog = []changeLogStruct{
+	{Version: "2024-08-26_1",
+		ChangeLog: `新功能：
+插件/guessmusic: 多线程下载
++ 指令: /report: 回复一条消息，快速反馈错误
+
+修复：
+插件/huntercode: 索引越界
+插件/huntercode: 默认非公开
+插件/guessmusic: 猜歌支持新网易云分享链接
+`},
 	{
 		Version: "2024-08-26",
 		ChangeLog: `新功能：
