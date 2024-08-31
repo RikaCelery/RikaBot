@@ -82,6 +82,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/guessmusic"       // 猜歌
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hitokoto"         // 一言
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hs"               // 炉石
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/huntercode"       // 怪猎集会码
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hyaku"            // 百人一首
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/igem"             // igem renderer
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/inject"           // 注入指令
