@@ -56,6 +56,12 @@ func (c code) HumanReadableTime() string {
 	return t.Format("15:04:05")
 }
 
+func removeOlds() {
+	// remove lase day
+	t := time.Now()
+	db.Del("codes", "where Time < ?", time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location()).Unix())
+}
+
 // insert 忽略ID
 func insert(c *code) error {
 	_, err := db.DB.Exec(`replace into codes(Value,Time,IsPublic,GroupId,Type) values(?,?,?,?,?)`, c.Value, c.Time, c.IsPublic, c.GroupId, c.Type)
@@ -150,6 +156,7 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 		}
 	})
 	engine.OnCommandGroup([]string{"世界集会码", "崛起集会码"}, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		removeOlds()
 		switch ctx.State["command"].(string) {
 		case "世界集会码":
 			codes := findFor(ctx.Event.GroupID, "世界")
