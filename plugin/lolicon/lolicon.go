@@ -2,8 +2,13 @@
 package lolicon
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	log "github.com/sirupsen/logrus"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -42,12 +47,36 @@ func init() {
 	en.OnPrefix("随机图片").Limit(ctxext.LimitByUser).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			if imgtype := strings.TrimSpace(ctx.State["args"].(string)); imgtype != "" {
-				imageurl, err := getimgurl(api + "?tag=" + url.QueryEscape(imgtype))
+				buf := strings.Builder{}
+				buf.WriteString(api)
+				split := strings.Split(imgtype, "&")
+				for i := range split {
+					if i == 0 {
+						buf.WriteByte('?')
+					} else {
+						buf.WriteByte('&')
+					}
+					buf.WriteString(fmt.Sprintf("tag=%s", url.QueryEscape(split[i])))
+				}
+				log.Debugf("api: %v", buf.String())
+				imageurl, err := getimgurl(buf.String())
 				if err != nil {
 					ctx.SendChain(message.Text("ERROR: ", err))
 					return
 				}
-				if id := ctx.Send(message.Message{ctxext.FakeSenderForwardNode(ctx, message.Image(imageurl))}).ID(); id == 0 {
+				data, err := http.Get(imageurl)
+				if err != nil {
+					ctx.SendChain(message.Text("ERROR: ", err))
+					return
+				}
+				var b = bytes.Buffer{}
+				defer data.Body.Close()
+				_, err = io.Copy(&b, data.Body)
+				if err != nil {
+					ctx.SendChain(message.Text("ERROR: ", err))
+					return
+				}
+				if id := ctx.Send(message.Message{ctxext.FakeSenderForwardNode(ctx, message.ImageBytes(b.Bytes()))}).ID(); id == 0 {
 					ctx.SendChain(message.Text("ERROR: 可能被风控了"))
 				}
 				return
