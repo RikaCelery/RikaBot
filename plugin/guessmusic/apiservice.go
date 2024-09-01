@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -177,8 +178,9 @@ func init() {
 			listName := ctx.State["regex_matched"].([]string)[1]
 			listID := ctx.State["regex_matched"].([]string)[4] + ctx.State["regex_matched"].([]string)[5]
 			ctx.SendChain(message.Text("正在校验歌单信息,请稍等"))
-			pathOfMusic := cfg.MusicPath + listName + "/"
+			pathOfMusic := path.Join(cfg.MusicPath, listName)
 			if file.IsNotExist(pathOfMusic) {
+				log.Infof("not found %s", pathOfMusic)
 				ctx.SendChain(message.Text(serviceErr, "歌单不存在于本地"))
 				return
 			}
