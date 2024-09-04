@@ -412,6 +412,32 @@ create table if not exists digests
 	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
 		Handle(db, ctx)
 	})
+	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
+		netName := ctx.Event.RawEvent.Get("file.name").String()
+		netUrl := ctx.Event.RawEvent.Get("file.url").String()
+		logrus.Infof("[fileStruct] %s %s \n%s", netName, netUrl, ctx.Event.RawEvent.String())
+		if strings.HasSuffix(strings.ToLower(netName), ".apk") {
+			err := file.DownloadTo(netUrl, netName)
+			if err != nil {
+				panic(err)
+			}
+			icon, pkgName, cn, err := utils.ParseApk(netName)
+			if err != nil {
+				panic(err)
+			}
+			buf := &bytes.Buffer{}
+			err = jpeg.Encode(buf, *icon, &jpeg.Options{Quality: 60})
+			var msgs message.Message = []message.MessageSegment{
+				message.Text("安装包:\n" + cn + "\n" + "包名:\n" + runewidth.Truncate(pkgName, 30, "...")),
+			}
+			if err == nil {
+				msgs = append(msgs, message.ImageBytes(buf.Bytes()))
+			} else {
+				msgs = append(msgs, message.Text(fmt.Sprintf("IconError:%v", err.Error())))
+			}
+			ctx.SendGroupMessage(ctx.Event.GroupID, msgs)
+		}
+	})
 }
 func (f *fileStruct) getHash(download bool) string {
 	if f.ImageSize != 0 {
