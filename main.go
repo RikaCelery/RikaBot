@@ -216,6 +216,7 @@ type zbpcfg struct {
 }
 
 var config zbpcfg
+var filter int64
 
 func init() {
 	sus := make([]int64, 0, 16)
@@ -237,6 +238,7 @@ func init() {
 	rsz := flag.Uint("r", 4096, "Receiving buffer ring size.")
 	maxpt := flag.Uint("x", 4, "Max process time (min).")
 	markmsg := flag.Bool("m", false, "Don't mark message as read automatically")
+	flag.Int64Var(&filter, "f", 0, "Filter Only Group")
 	flag.BoolVar(&file.SkipOriginal, "mirror", false, "Use mirrored lazy data at first")
 
 	flag.Parse()
@@ -323,6 +325,22 @@ func main() {
 	}()
 	if !strings.Contains(runtime.Version(), "go1.2") { // go1.20之前版本需要全局 seed，其他插件无需再 seed
 		rand.Seed(time.Now().UnixNano()) //nolint: staticcheck
+	}
+	if filter != 0 {
+		zero.OnMessage().SetBlock(true).SetPriority(-99).Handle(func(ctx *zero.Ctx) {
+			if ctx.Event.GroupID != filter {
+				return
+			}
+			for i := range ctx.Event.Message {
+				segment := ctx.Event.Message[i]
+				marshal, _ := json.Marshal(segment.Data)
+				logrus.Infof("[msg] %s %s", segment.Type, string(marshal))
+			}
+			logrus.Infof("msg json %s", ctx.Event.RawEvent.String())
+			logrus.Infof("msg PostType %s", ctx.Event.PostType)
+			logrus.Infof("msg DetailType %s", ctx.Event.DetailType)
+			logrus.Infof("msg SubType %s", ctx.Event.SubType)
+		})
 	}
 	// 帮助
 	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单", "帮助"}, zero.OnlyToMe).SetBlock(true).

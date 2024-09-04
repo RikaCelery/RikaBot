@@ -38,11 +38,13 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/liuzl/gocc v0.0.0-20231231122217-0372e1059ca5
 	github.com/mattn/go-runewidth v0.0.4
+	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/mroth/weightedrand v1.0.0
 	github.com/notnil/chess v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil/v3 v3.24.4
+	github.com/shogo82148/androidbinary v1.0.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tidwall/gjson v1.17.1
 	github.com/wcharczuk/go-chart/v2 v2.1.1
@@ -94,7 +96,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f // indirect
 	github.com/mmcdole/goxpp v1.1.1-0.20240225020742-a0c311522b23 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect

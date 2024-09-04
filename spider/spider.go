@@ -8,14 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
+	"github.com/FloatTech/floatbox/file"
 	sqlite "github.com/FloatTech/sqlite"
 	"github.com/corona10/goimagehash"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/mattn/go-runewidth"
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"image"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"net/url"
@@ -39,20 +43,20 @@ type row struct {
 
 type forwardInfo struct {
 	Id      int
-	Images  []file
-	Videos  []file
+	Images  []fileStruct
+	Videos  []fileStruct
 	Links   []string
 	Magnets []string
 	RawJson string
 }
-type file struct {
+type fileStruct struct {
 	Path      string
 	ImageSize int64
 	VideoHash string
 	Url       string
 }
 
-func (f *file) Identity() string {
+func (f *fileStruct) Identity() string {
 	if f.VideoHash != "" {
 		return f.VideoHash
 	} else if f.ImageSize != 0 {
@@ -84,8 +88,8 @@ func removeDuplicates(slice []string) []string {
 	return result
 }
 
-func removeDuplicatesFile(slice []file) []file {
-	result := make([]file, 0, len(slice))
+func removeDuplicatesFile(slice []fileStruct) []fileStruct {
+	result := make([]fileStruct, 0, len(slice))
 	encountered := make(map[string]bool)
 
 	for _, str := range slice {
@@ -409,7 +413,7 @@ create table if not exists digests
 		Handle(db, ctx)
 	})
 }
-func (f *file) getHash(download bool) string {
+func (f *fileStruct) getHash(download bool) string {
 	if f.ImageSize != 0 {
 		if hasHashStored(f.Url) {
 			phash, _, _ := getHashStored(f.Url)
@@ -460,8 +464,8 @@ func hashForward(textContent string, fInfo *forwardInfo, download bool) string {
 		addi = append(addi, video.Identity())
 	}
 	//TODO
-	//for _, file := range fInfo.Files {
-	//	textContent += "\nv:" + file.Identity()
+	//for _, fileStruct := range fInfo.Files {
+	//	textContent += "\nv:" + fileStruct.Identity()
 	//}
 	return hashForward2(textContent, addi)
 }
@@ -476,8 +480,8 @@ func hashForward2(textContent string, addi []string) string {
 }
 
 func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
-	var images []file
-	var videos []file
+	var images []fileStruct
+	var videos []fileStruct
 	var links []string
 	var magnets []string
 	var textContent = ""
@@ -516,14 +520,14 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 						values.Set("appid", "1407")
 						s.RawQuery = values.Encode()
 						images = append(images,
-							file{
+							fileStruct{
 								Path:      res.Get("FilePath").String(),
 								Url:       s.String(),
 								ImageSize: res.Get("ImageSize").Int(),
 							})
 					} else {
 						videos = append(videos,
-							file{
+							fileStruct{
 								Path: res.Get("FilePath").String(),
 								Url:  res.Get("VideoUrl").String(),
 							})
