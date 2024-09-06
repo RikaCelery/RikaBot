@@ -32,12 +32,13 @@ var (
 )
 
 type code struct {
-	Id       int
-	Value    string
-	Time     int64
-	IsPublic bool
-	GroupId  int64
-	Type     string
+	Id        int
+	Value     string
+	Time      int64
+	IsPublic  bool
+	GroupId   int64
+	Type      string
+	senderUid int64
 }
 
 func (c code) PublicStr() string {
@@ -59,7 +60,7 @@ func (c code) HumanReadableTime() string {
 func removeOlds() {
 	// remove lase day
 	t := time.Now()
-	db.Del("codes", "where Time < ?", time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location()).Unix())
+	db.Del("codes", "where Time < ?", time.Date(t.Year(), t.Month(), t.Day()-1, 23, 59, 59, 0, t.Location()).Unix())
 }
 
 // insert 忽略ID
@@ -104,7 +105,8 @@ create table if not exists codes(
     Time integer not null,
     IsPublic integer not null,
     GroupId integer not null,
-    Type text not null
+    Type text not null,
+    senderUid integer not null
 );
 create unique index if not exists codes_value_groupid_uindex ON codes
     (Value,GroupId,Type)
@@ -163,7 +165,15 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 			if len(codes) > 0 {
 				buf := strings.Builder{}
 				for _, c := range codes {
-					buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.Id, c.Value, c.HumanReadableTime(), c.PublicStr()))
+					if c.IsPublic {
+						buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.Id, c.Value, c.HumanReadableTime(), c.PublicStr()))
+					} else {
+						nick := ctx.GetThisGroupMemberInfo(c.senderUid, true).Get("card").String()
+						if nick == "" {
+							nick = ctx.GetThisGroupMemberInfo(c.senderUid, true).Get("card").String()
+						}
+						buf.WriteString(fmt.Sprintf("%d: %s %s 来自:%s[%d] %s\n", c.Id, c.Value, c.HumanReadableTime(), nick, c.senderUid, c.PublicStr()))
+					}
 				}
 				ctx.SendChain(message.Text("世界集会码：\n", strings.TrimSpace(buf.String())))
 			} else {
@@ -196,12 +206,13 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 			return
 		}
 		err := insert(&code{
-			Id:       -1,
-			Value:    args[0],
-			Time:     time.Now().Unix(),
-			IsPublic: args[1] == "公开",
-			GroupId:  ctx.Event.GroupID,
-			Type:     ctx.State["command"].(string),
+			Id:        -1,
+			Value:     args[0],
+			Time:      time.Now().Unix(),
+			IsPublic:  args[1] == "公开",
+			GroupId:   ctx.Event.GroupID,
+			Type:      ctx.State["command"].(string),
+			senderUid: ctx.Event.UserID,
 		})
 		if err != nil {
 			ctx.SendChain(message.Text("ERROR:", err))
