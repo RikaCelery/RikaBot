@@ -11,11 +11,12 @@ func ParseApk(file string) (icon *image.Image, pkgName, labelCN string, err erro
 	if err != nil {
 		return
 	}
-	i, err := pkg.Icon(nil)
-	if err != nil {
-		return
+	i, e := pkg.Icon(nil)
+	if e != nil {
+		icon = nil
+	} else {
+		icon = &i
 	}
-	icon = &i
 	pkgName = FilterSensitive(pkg.PackageName())
 	s, err := pkg.Label(&androidbinary.ResTableConfig{
 		Language: [2]uint8{uint8('z'), uint8('h')},
