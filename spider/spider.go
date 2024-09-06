@@ -12,6 +12,7 @@ import (
 	"github.com/FloatTech/floatbox/file"
 	sqlite "github.com/FloatTech/sqlite"
 	"github.com/corona10/goimagehash"
+	"github.com/dustin/go-humanize"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/mattn/go-runewidth"
 	"github.com/sirupsen/logrus"
@@ -21,6 +22,7 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -140,7 +142,7 @@ retry:
 	fileExt, err := getFileTypeFromBytes(buf[:l])
 	if err != nil {
 		retryed++
-		if retryed == 3 {
+		if retryed >= 3 {
 			return fmt.Errorf("error determining file type: %v", err)
 		}
 		goto retry
@@ -416,26 +418,59 @@ create table if not exists digests
 		netName := ctx.Event.RawEvent.Get("file.name").String()
 		netUrl := ctx.Event.RawEvent.Get("file.url").String()
 		logrus.Infof("[fileStruct] %s %s \n%s", netName, netUrl, ctx.Event.RawEvent.String())
-		if strings.HasSuffix(strings.ToLower(netName), ".apk") {
+		if strings.HasSuffix(strings.ToLower(netName), ".apk") || strings.HasSuffix(strings.ToLower(netName), ".apk.1") || strings.HasPrefix(strings.ToLower(netName), "base.apk") || strings.HasPrefix(strings.ToLower(netName), "base(1).apk") || strings.HasPrefix(strings.ToLower(netName), "base(2).apk") || strings.HasPrefix(strings.ToLower(netName), "base(3).apk") {
 			err := file.DownloadTo(netUrl, netName)
 			if err != nil {
 				panic(err)
 			}
-			icon, pkgName, cn, err := utils.ParseApk(netName)
+			icon, pkgName, cn, manifest, err := utils.ParseApk(netName)
 			if err != nil {
 				panic(err)
 			}
 			buf := &bytes.Buffer{}
-			err = jpeg.Encode(buf, *icon, &jpeg.Options{Quality: 60})
-			var msgs message.Message = []message.MessageSegment{
-				message.Text("安装包:\n" + cn + "\n" + "包名:\n" + runewidth.Truncate(pkgName, 30, "...")),
+			if icon != nil {
+				err = jpeg.Encode(buf, *icon, &jpeg.Options{Quality: 60})
 			}
+			sdkMin, err := manifest.SDK.Min.Int32()
+			if err != nil {
+				sdkMin = -1
+			}
+			sdkTarget, err := manifest.SDK.Target.Int32()
+			if err != nil {
+				sdkTarget = -1
+			}
+			vname, err := manifest.VersionName.String()
+			if err != nil {
+				vname = "解析失败"
+			}
+			vcode, err := manifest.VersionCode.Int32()
+			if err != nil {
+				vcode = -9
+			}
+			var fileSize string
+			stat, err := os.Stat(netName)
 			if err == nil {
+				fileSize = humanize.BigIBytes(big.NewInt(stat.Size()))
+			}
+			var msgs message.Message = []message.MessageSegment{
+				message.Text(fmt.Sprintf(
+					"安装包:\n%s\n包名:\n%s\n版本名称:%s\n版本号:%d\nSDK:[%d,%d(target)]\nSize:%s",
+					cn,
+					runewidth.Truncate(pkgName, 30, "..."),
+					runewidth.Truncate(vname, 30, "..."),
+					vcode,
+					sdkMin,
+					sdkTarget,
+					fileSize,
+				)),
+			}
+			if icon != nil {
 				msgs = append(msgs, message.ImageBytes(buf.Bytes()))
 			} else {
-				msgs = append(msgs, message.Text(fmt.Sprintf("IconError:%v", err.Error())))
+				msgs = append(msgs, message.Text(fmt.Sprintf("\n图图炸了！")))
 			}
 			ctx.SendGroupMessage(ctx.Event.GroupID, msgs)
+
 		}
 	})
 }
@@ -476,7 +511,6 @@ func hashForward(textContent string, fInfo *forwardInfo, download bool) string {
 	var addi []string
 	addi = append(addi, fmt.Sprintf("%d", len(fInfo.Images)))
 	//TODO
-	//addi = append(addi, strconv.FormatInt(int64(len(fInfo.Files)),10))
 	for _, img := range fInfo.Images {
 		if hasHashStored(img.Url) {
 			phash, _, _ := getHashStored(img.Url)
@@ -649,42 +683,24 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	if len(info.Links) == 0 {
 		goto sendLinkEnd
 	}
-	{
-		//var base64ed []string
-		//md5Hash := md5.Sum([]byte(strings.Join(info.Links, "\n")))
-		//abs, _ := filepath.Abs(fmt.Sprintf("%x_links.txt", md5Hash))
-		//if _, err := os.Stat(abs); err != nil {
-		//	goto sendLinkEnd
-		//}
-		//for _, link := range info.Links {
-		//	// avoid content audit
-		//	base64ed = append(base64ed, base64.StdEncoding.EncodeToString([]byte(link)))
-		//}
-		//if len(base64ed) != 0 {
-		//	f, _ := os.OpenFile(abs, os.O_CREATE|os.O_WRONLY, 0644)
-		//	_, _ = f.WriteString(strings.Join(base64ed, "\n"))
-		//	f.Close()
-		//	// not upload
-		//}
-	}
 sendLinkEnd:
 	var oc = make(chan string, len(info.Images))
 	if len(info.Images) != 0 {
 		//client := http.Client{}
 		var wg = sync.WaitGroup{}
 		var imgFiles []string
-		for _, image := range info.Images {
+		for _, img := range info.Images {
 			wg.Add(1)
-			image := image
+			img := img
 			go func() {
 				defer func() {
 					wg.Done()
 					if r := recover(); r != nil {
 					}
 				}()
-				err := downloadImageFromURL(image.Url, oc)
+				err := downloadImageFromURL(img.Url, oc)
 				if err != nil {
-					logrus.Warnln("[spider] download Failed", image, err.Error())
+					logrus.Warnln("[spider] download Failed", img, err.Error())
 					return
 				}
 			}()
@@ -701,40 +717,6 @@ sendLinkEnd:
 			return
 		}
 		sort.Strings(imgFiles)
-		//md5Hash := md5.Sum([]byte(strings.Join(imgFiles, "\n")))
-		//imgFileListPath := fmt.Sprintf("%x.images.txt", md5Hash)
-		//imgFileList, err := os.OpenFile(imgFileListPath, os.O_CREATE|os.O_WRONLY, 0644)
-		//if err != nil {
-		//	panic(err)
-		//	return
-		//}
-		//_, err = imgFileList.WriteString(strings.Join(imgFiles, "\n"))
-		//imgFileList.Close()
-		//if err != nil {
-		//	panic(err)
-		//	return
-		//}
-		//
-		//imgArchiveAbs, _ := filepath.Abs(fmt.Sprintf("pack.%x.imgs.7z", md5Hash))
-		//cmd :=
-		//	exec.Command("7z", "a", "-y", "-p1145141919810", "-mhe=on", imgArchiveAbs, fmt.Sprintf("@%s", imgFileListPath))
-		//cmd.Stdout = os.Stdout
-		//cmd.Stderr = os.Stderr
-		//err = cmd.Start()
-		//if err != nil {
-		//	cmd.Wait()
-		//	err = os.Remove(imgFileListPath)
-		//	if err != nil {
-		//		println(err.Error())
-		//	}
-		//	//upload no
-		//	//if ctx.Event.GroupID == 564828920 || ctx.Event.GroupID == 839852697 || ctx.Event.GroupID == 924075421 || ctx.Event.GroupID == 946855395 {
-		//	//	r := ctx.UploadThisGroupFile(imgArchiveAbs, fmt.Sprintf("img包(%d)#%x.7z", len((imgFiles)), md5Hash), "")
-		//	//	if r.RetCode != 0 {
-		//	//		logrus.Warn("returns", r.RetCode)
-		//	//	}
-		//	//}
-		//}
 	}
 	{
 		var wg = sync.WaitGroup{}
@@ -757,22 +739,20 @@ sendLinkEnd:
 					return
 				}
 				logrus.Infoln("[spider] download", video)
-				file, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
+				openFile, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
 				if err2 != nil {
 					return
 				}
-				//s, _ := filepath.Abs(fname)
-				_, err := io.Copy(file, resp.Body)
+				_, err := io.Copy(openFile, resp.Body)
 				if err != nil {
-					file.Close()
+					openFile.Close()
 					os.Remove(fname)
 					logrus.Warnln("[spider] download Failed", video)
 					return
 				}
-				file.Close()
+				openFile.Close()
 				logrus.Infoln("[spider] download OK", video)
 			}()
-
 		}
 	}
 }

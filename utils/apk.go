@@ -6,7 +6,7 @@ import (
 	"image"
 )
 
-func ParseApk(file string) (icon *image.Image, pkgName, labelCN string, err error) {
+func ParseApk(file string) (icon *image.Image, pkgName, labelCN string, manifest apk.Manifest, err error) {
 	pkg, err := apk.OpenFile(file)
 	if err != nil {
 		return
@@ -18,6 +18,7 @@ func ParseApk(file string) (icon *image.Image, pkgName, labelCN string, err erro
 		icon = &i
 	}
 	pkgName = FilterSensitive(pkg.PackageName())
+	manifest = pkg.Manifest()
 	s, err := pkg.Label(&androidbinary.ResTableConfig{
 		Language: [2]uint8{uint8('z'), uint8('h')},
 		Country:  [2]uint8{uint8('C'), uint8('N')},
