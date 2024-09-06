@@ -3,6 +3,10 @@ package utils
 import (
 	"github.com/shogo82148/androidbinary"
 	"github.com/shogo82148/androidbinary/apk"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/vector"
+	_ "golang.org/x/image/vp8"
+	_ "golang.org/x/image/webp"
 	"image"
 )
 
