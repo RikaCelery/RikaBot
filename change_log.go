@@ -6,6 +6,22 @@ type changeLogStruct struct {
 }
 
 var changeLog = []changeLogStruct{
+	{
+		Version: "2024-09-06",
+		ChangeLog: `
+fix(huntercode): 自动删除上一天的集会码
+fix(spider): 忽略无法解析的apk图标，继续解析其他字段
+fix(main): 尝试从崩溃中回复错误信息
+
+feat(spider): 支持更多信息解析
+`,
+	},
+	{
+		Version: "2024-09-04",
+		ChangeLog: `新功能：
+系统插件/spider: 现在可以自动检测APK文件并获取名字等相关信息
+`,
+	},
 	{Version: "2024-08-26_1",
 		ChangeLog: `新功能：
 插件/guessmusic: 多线程下载
