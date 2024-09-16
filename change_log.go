@@ -7,6 +7,23 @@ type changeLogStruct struct {
 
 var changeLog = []changeLogStruct{
 	{
+		Version: "2024-09-16",
+		ChangeLog: `
+feat(huntercode): support sender information
+
+change(huntercode): {prefix}世界|崛起 在不写集会码时候默认显示所有集会码
+
+fix(qqwife): 允许设置小数CD
+fix(main): 消息过滤器不应该Block匹配群组
+fix(qqwife): 当小三无法正确响应
+fix(qqwife): 当小三指令无反应
+
+refactor(qqwife): 使用新的消息解析方式
+
+chore(main): 优化log格式
+`,
+	},
+	{
 		Version: "2024-09-06",
 		ChangeLog: `
 fix(huntercode): 自动删除上一天的集会码
