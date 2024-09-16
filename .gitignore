@@ -10,3 +10,7 @@ ZeroBot-Plugin*
 *.syso
 /.direnv
 /result
+/videotmp/
+/tmp/
+/webctrl/
+/data/

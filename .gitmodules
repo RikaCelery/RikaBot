@@ -1,3 +1,6 @@
 [submodule "data"]
 	path = data
 	url = https://github.com/FloatTech/zbpdata
+[submodule "data/bangdumidb/Archive"]
+	path = data/bangdumidb/Archive
+	url = https://github.com/bangumi/Archive.git
