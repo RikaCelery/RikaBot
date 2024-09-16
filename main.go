@@ -329,8 +329,9 @@ func main() {
 		rand.Seed(time.Now().UnixNano()) //nolint: staticcheck
 	}
 	if filter != 0 {
-		zero.OnMessage().SetBlock(true).SetPriority(-99).Handle(func(ctx *zero.Ctx) {
+		zero.OnMessage().SetPriority(-99).Handle(func(ctx *zero.Ctx) {
 			if ctx.Event.GroupID != filter {
+				ctx.Block()
 				return
 			}
 			for i := range ctx.Event.Message {
@@ -339,9 +340,8 @@ func main() {
 				logrus.Infof("[msg] %s %s", segment.Type, string(marshal))
 			}
 			logrus.Infof("msg json %s", ctx.Event.RawEvent.String())
-			logrus.Infof("msg PostType %s", ctx.Event.PostType)
-			logrus.Infof("msg DetailType %s", ctx.Event.DetailType)
-			logrus.Infof("msg SubType %s", ctx.Event.SubType)
+			// PostType/DetailType/SubType
+			logrus.Infof("msg %s/%s/%s", ctx.Event.PostType, ctx.Event.DetailType, ctx.Event.SubType)
 		})
 	}
 	// 帮助
