@@ -43,7 +43,7 @@ var sendtext = [...][]string{
 }
 
 func init() {
-	engine.OnRegex(`^设置CD为(\d+)小时`, zero.OnlyGroup, zero.AdminPermission, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnRegex(`^设置CD为?([\d]+(?:\.\d+)?)小时`, zero.OnlyGroup, zero.AdminPermission, getdb).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			cdTime, err := strconv.ParseFloat(ctx.State["regex_matched"].([]string)[1], 64)
 			if err != nil {
@@ -162,12 +162,17 @@ func init() {
 			)
 		})
 	// NTR技能
-	engine.OnRegex(`^当(\[CQ:at,qq=(\d+)(?:,.*)?]\s?|(\d+))的小三`, zero.OnlyGroup, getdb, checkMistress).SetBlock(true).Limit(ctxext.LimitByUser).
+	engine.OnMessage(
+		zero.PatternRule(zero.PatternText("当"), zero.PatternAt(), zero.PatternText("的小三")),
+		zero.OnlyGroup,
+		getdb,
+		checkMistress,
+	).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
 			gid := ctx.Event.GroupID
 			uid := ctx.Event.UserID
-			fid := ctx.State["regex_matched"].([]string)
-			fiancee, _ := strconv.ParseInt(fid[2]+fid[3], 10, 64)
+			fid := ctx.State[zero.KEY_PATTERN].([]interface{})
+			fiancee, _ := strconv.ParseInt(fid[1].(string), 10, 64)
 			// 写入CD
 			err := 民政局.记录CD(gid, uid, "NTR")
 			if err != nil {
@@ -481,7 +486,7 @@ func checkSingleDog(ctx *zero.Ctx) bool {
 func checkMistress(ctx *zero.Ctx) bool {
 	gid := ctx.Event.GroupID
 	uid := ctx.Event.UserID
-	fiancee, err := strconv.ParseInt(ctx.State["regex_matched"].([]string)[2], 10, 64)
+	fiancee, err := strconv.ParseInt(ctx.State[zero.KEY_PATTERN].([]interface{})[1].(string), 10, 64)
 	if err != nil {
 		ctx.SendChain(message.Text("额,你的target好像不存在?"))
 		return false
