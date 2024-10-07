@@ -1011,22 +1011,6 @@ print("run[CQ:image,file="+j["img"]+"]")
 
 </details>
 <details>
-  <summary>抽wife</summary>
-
-  `import _ "github.com/FloatTech/ZeroBot-Plugin/plugin/nativewife"`
-
-  - [x] 抽wife[@xxx]
-
-  - [x] 添加wife[名字][图片]
-
-  - [x] 删除wife[名字]
-
-  - [x] [让 | 不让]所有人均可添加wife
-
-  - 注：不同群添加后不会重叠
-
-</details>
-<details>
   <summary>拼音首字母释义工具</summary>
 
   `import _ "github.com/FloatTech/ZeroBot-Plugin/plugin/nbnhhsh"`
@@ -1042,6 +1026,36 @@ print("run[CQ:image,file="+j["img"]+"]")
   - [x] 日语语法 [xxx] (使用tag随机)
   
   - [x] 搜索日语语法 [xxx]
+
+</details>
+<details>
+  <summary>牛牛大作战</summary>
+
+`import _ "github.com/FloatTech/ZeroBot-Plugin/plugin/niuniu" `
+
+- [x] 打胶
+
+- [x] 使用[道具名称]打胶
+
+- [x] jj[@xxx]
+
+- [x] 使用[道具名称]jj[@xxx]
+
+- [x] 赎牛牛
+
+- [x] 牛牛商店
+
+- [x] 牛牛背包
+
+- [x] 注册牛牛
+
+- [x] 注销牛牛
+
+- [x] 牛子长度排行
+
+- [x] 牛子深度排行
+
+- [x] 查看我的牛牛
 
 </details>
 <details>
@@ -1066,6 +1080,22 @@ print("run[CQ:image,file="+j["img"]+"]")
   - [x] nsfw打分[图片]
 
   - [x] 当图片属于非 neutral 类别时自动发送评价(默认禁用，启用输入 /启用 nsfwauto)
+
+</details>
+<details>
+  <summary>抽wife</summary>
+
+  `import _ "github.com/FloatTech/ZeroBot-Plugin/plugin/nwife"`
+
+  - [x] 抽wife[@xxx]
+
+  - [x] 添加wife[名字][图片]
+
+  - [x] 删除wife[名字]
+
+  - [x] [让 | 不让]所有人均可添加wife
+
+  - 注：不同群添加后不会重叠
 
 </details>
 <details>

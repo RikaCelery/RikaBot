@@ -4,14 +4,14 @@ go 1.20
 
 require (
 	github.com/Baidu-AIP/golang-sdk v1.1.1
-	github.com/FloatTech/AnimeAPI v1.7.1-0.20240530072450-71c23d2f01f8
+	github.com/FloatTech/AnimeAPI v1.7.1-0.20240826120833-9bf54389aadb
 	github.com/FloatTech/floatbox v0.0.0-20240505082030-226ec6713e14
 	github.com/FloatTech/gg v1.1.3
 	github.com/FloatTech/imgfactory v0.2.2-0.20230413152719-e101cc3606ef
 	github.com/FloatTech/rendercard v0.1.1
 	github.com/FloatTech/sqlite v1.6.3
 	github.com/FloatTech/ttl v0.0.0-20240716161252-965925764562
-	github.com/FloatTech/zbpctrl v1.6.2-0.20240819160950-8c602be65fc6
+	github.com/FloatTech/zbpctrl v1.6.2-0.20240904160347-1317e11a15bb
 	github.com/FloatTech/zbputils v1.7.2-0.20240822065525-5ea6811ed91c
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/RomiChan/syncx v0.0.0-20240418144900-b7402ffdebc7
@@ -21,12 +21,14 @@ require (
 	github.com/corona10/goimagehash v1.1.0
 	github.com/davidscholberg/go-durationfmt v0.0.0-20170122144659-64843a2083d3
 	github.com/disintegration/imaging v1.6.2
+	github.com/dustin/go-humanize v1.0.1
 	github.com/fumiama/ahsai v0.1.0
 	github.com/fumiama/cron v1.3.0
 	github.com/fumiama/go-base16384 v1.7.0
 	github.com/fumiama/go-registry v0.2.7
 	github.com/fumiama/gotracemoe v0.0.3
 	github.com/fumiama/jieba v0.0.0-20221203025406-36c17a10b565
+	github.com/fumiama/slowdo v0.0.0-20241001074058-27c4fe5259a4
 	github.com/fumiama/terasu v0.0.0-20240507144117-547a591149c0
 	github.com/fumiama/unibase2n v0.0.0-20240530074540-ec743fd5a6d6
 	github.com/gabriel-vasile/mimetype v1.0.4
@@ -46,12 +48,12 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.4
 	github.com/shogo82148/androidbinary v1.0.5
 	github.com/sirupsen/logrus v1.9.3
-	github.com/tidwall/gjson v1.17.1
+	github.com/tidwall/gjson v1.17.3
 	github.com/wcharczuk/go-chart/v2 v2.1.1
-	github.com/wdvxdr1123/ZeroBot v1.7.5-0.20240819160523-35d33e774a2d
+	github.com/wdvxdr1123/ZeroBot v1.7.5-0.20240829093431-bea5257d1a2b
 	gitlab.com/gomidi/midi/v2 v2.1.7
 	golang.org/x/image v0.16.0
-	golang.org/x/sys v0.24.0
+	golang.org/x/sys v0.20.0
 	golang.org/x/text v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -66,7 +68,6 @@ require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/antchfx/xpath v1.3.0 // indirect
 	github.com/blend/go-sdk v1.20220411.3 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ericpauley/go-quantize v0.0.0-20200331213906-ae555eb2afa4 // indirect
 	github.com/faiface/beep v1.1.0 // indirect
 	github.com/fumiama/go-simple-protobuf v0.2.0 // indirect
@@ -126,10 +127,10 @@ require (
 	golang.org/x/tools v0.19.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	modernc.org/libc v1.59.9 // indirect
+	modernc.org/libc v1.49.3 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.8.0 // indirect
-	modernc.org/sqlite v1.32.0 // indirect
+	modernc.org/sqlite v1.20.0 // indirect
 )
 
 replace modernc.org/sqlite => github.com/fumiama/sqlite3 v1.29.10-simp
