@@ -7,6 +7,27 @@ type changeLogStruct struct {
 
 var changeLog = []changeLogStruct{
 	{
+		Version: "2024-10-07",
+		ChangeLog: `合并了ZeroBotPlugin上游，更新很多:
+fix: regex error (#965)
+feat: 新插件 牛牛大作战 (#944)
+fix&feat(niuniu): 添加新玩法赎牛牛 (#970)
+fix:修改niuniu插件at功能正则，提高兼容性 (#973)
+fix(score): 签到图片余额为0(#978) (#979)
+fix&feat(niuniu): 修复已知问题，添加新玩法牛牛商店 (#974)
+fix: 修正niuniu的部分逻辑 (#981)
+fix: 牛牛为负数时jj时的错误 (#984)
+feat(manager): add slow send (#985)
+fix(manager): remove fake sender
+fix(manager): forward send
+fix: aireply: 修复文字回复模式 (#991)
+optimize(mcfish): 限制鱼贩的垄断 (#992)
+reactor(emoji): 更改提取emoji的算法，重构代码，提取函数
+feat(emoji): 增加{prefix}命令合成
+feat(emoji): 增加调用限制
+`,
+	},
+	{
 		Version: "2024-09-16",
 		ChangeLog: `
 feat(huntercode): support sender information
