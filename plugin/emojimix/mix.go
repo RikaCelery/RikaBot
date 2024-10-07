@@ -26,8 +26,8 @@ func init() {
 	control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "合成emoji",
-		Help: `- {prefix}🤓🥰
-- 😵🐢
+		Help: `- {prefix}表情1表情2
+- 表情1表情2
 ===============
 {prefix}可选
     不加 每分钟 每个群 每个表情(混合后) 最多触发 2 次
