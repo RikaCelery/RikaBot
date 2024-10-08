@@ -101,6 +101,7 @@ func match(ctx *zero.Ctx) bool {
 		ctx.State["emojimix_command"] = true
 		ctx.Event.Message[0].Data["text"] = strings.TrimSpace(ctx.Event.Message[0].Data["text"][1:])
 	} else {
+		ctx.State["emojimix_command"] = false
 		//return false
 	}
 	emojis := extractEmoji(ctx.Event.Message)
