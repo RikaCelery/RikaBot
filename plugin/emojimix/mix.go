@@ -99,6 +99,14 @@ func extractEmoji(msg message.Message) (emojis []string) {
 	for _, segment := range msg {
 		switch segment.Type {
 		case "text":
+			s := segment.Data["text"]
+			loc := emojiRx.FindAllStringIndex(s, -1)
+			if len(loc) == 0 || loc[0][0] != 0 {
+				return
+			}
+			if !isContinuous(loc) {
+				return
+			}
 			emojis = append(emojis, emojiRx.FindAllString(segment.Data["text"], -1)...)
 			break
 		case "face":
@@ -110,6 +118,15 @@ func extractEmoji(msg message.Message) (emojis []string) {
 		}
 	}
 	return emojis
+}
+
+func isContinuous(loc [][]int) bool {
+	for i := 1; i < len(loc); i++ {
+		if loc[i][0] != loc[i-1][1] {
+			return false
+		}
+	}
+	return true
 }
 func emojiToHashSlug(emoji string) (err error, hashSlug string) {
 	if !emojiRx.MatchString(emoji) {
