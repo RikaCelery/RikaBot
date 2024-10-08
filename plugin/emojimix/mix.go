@@ -57,21 +57,25 @@ func init() {
 			r := ctx.State["emojimix"].([]string)
 			u1 := mixEmoji(r[0], r[1], false)
 			u2 := mixEmoji(r[0], r[1], true)
-			resp1, err := http.Head(u1)
-			if err == nil {
+
+			if resp1, err := http.Head(u1); err == nil {
 				resp1.Body.Close()
 				if resp1.StatusCode == http.StatusOK {
 					ctx.SendChain(message.Image(u1))
 					return
 				}
+			} else {
+				ctx.Send(fmt.Sprintf("ERROR: %v", err))
 			}
-			resp2, err := http.Head(u2)
-			if err == nil {
+
+			if resp2, err := http.Head(u2); err == nil {
 				resp2.Body.Close()
 				if resp2.StatusCode == http.StatusOK {
 					ctx.SendChain(message.Image(u2))
 					return
 				}
+			} else {
+				ctx.Send(fmt.Sprintf("ERROR: %v", err))
 			}
 		})
 
@@ -88,9 +92,11 @@ func init() {
 				if resp1.StatusCode == http.StatusOK {
 					ctx.SendChain(message.Image(u1))
 					return
+				} else {
+					ctx.SendChain(message.Text(fmt.Sprintf("%s找不到这个表情的动图", zero.BotConfig.NickName[0])))
 				}
 			} else {
-				ctx.SendChain(message.Text(fmt.Sprintf("%s找不到这个表情的动图", zero.BotConfig.NickName[0])))
+				ctx.Send(fmt.Sprintf("ERROR: %v", err))
 			}
 		})
 }
