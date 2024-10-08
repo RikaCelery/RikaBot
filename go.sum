@@ -25,8 +25,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/RikaCelery/ZeroBot v0.0.0-20241007065829-44d6c88c217e h1:LHcfcyRkdVc8NvAvwdVdYf9pf2CQhcjM1baeEY2glps=
 github.com/RikaCelery/ZeroBot v0.0.0-20241007065829-44d6c88c217e/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
-github.com/RikaCelery/floatbox v0.0.0-20240824060448-c99d91a0e538 h1:DsrVs1LYpltVEp2Z8JH9itj1Ayph57EZLhLFDYJUwyg=
-github.com/RikaCelery/floatbox v0.0.0-20240824060448-c99d91a0e538/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
+github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5 h1:Z5CBkgQG0hunEu69pY8iEGfVp+sx7okHh+8qUr4NB9A=
+github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
 github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b h1:01/jo3BW7wRunn0UMmg8hyzprr0UROZmnzzWti4eFAQ=
 github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b/go.mod h1:VO6pIM8K/k+YecPbhJl31cqYqRRztvPvMjA4q0+Pmvs=
 github.com/RikaCelery/zbputils v0.0.0-20241007081136-6812aab81090 h1:h2gemA5lYtUBepR0puIHtNYABF+hMWnLEXzJdlYvP10=

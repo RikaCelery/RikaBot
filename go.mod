@@ -140,7 +140,7 @@ replace modernc.org/libc => github.com/fumiama/libc v0.0.0-20240530081950-6f6d85
 
 replace github.com/FloatTech/zbputils => github.com/RikaCelery/zbputils v0.0.0-20241007081136-6812aab81090
 
-replace github.com/FloatTech/floatbox => github.com/RikaCelery/floatbox v0.0.0-20240824060448-c99d91a0e538
+replace github.com/FloatTech/floatbox => github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5
 
 //replace github.com/FloatTech/rendercard => /Users/rikahil/GolandProjects/rendercard
 
