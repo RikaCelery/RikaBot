@@ -129,7 +129,7 @@ func extractEmoji(msg message.Message) (emojis []string) {
 		case "text":
 			s := segment.Data["text"]
 			loc := emojiRx.FindAllStringIndex(s, -1)
-			if len(loc) == 0 || loc[0][0] != 0 {
+			if len(loc) == 0 || loc[0][0] != 0 || loc[len(loc)-1][1] != len(s) {
 				return
 			}
 			if !isContinuous(loc) {
