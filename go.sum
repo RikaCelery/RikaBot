@@ -29,8 +29,8 @@ github.com/RikaCelery/floatbox v0.0.0-20240824060448-c99d91a0e538 h1:DsrVs1LYplt
 github.com/RikaCelery/floatbox v0.0.0-20240824060448-c99d91a0e538/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
 github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b h1:01/jo3BW7wRunn0UMmg8hyzprr0UROZmnzzWti4eFAQ=
 github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b/go.mod h1:VO6pIM8K/k+YecPbhJl31cqYqRRztvPvMjA4q0+Pmvs=
-github.com/RikaCelery/zbputils v0.0.0-20240528162343-467602058b91 h1:v/32njcoFzyw4hGEZCfqm8CW8t3AJnzUmkosAe5jRX4=
-github.com/RikaCelery/zbputils v0.0.0-20240528162343-467602058b91/go.mod h1:nHWYtF4g2NRv3GXZiAZDvgPjdcHGUaQHxGgD0aHz30I=
+github.com/RikaCelery/zbputils v0.0.0-20241007081136-6812aab81090 h1:h2gemA5lYtUBepR0puIHtNYABF+hMWnLEXzJdlYvP10=
+github.com/RikaCelery/zbputils v0.0.0-20241007081136-6812aab81090/go.mod h1:0/K36+becDknNrgiWIdLRW7G8XxAmPOjOW3ex/Rg4YU=
 github.com/RomiChan/syncx v0.0.0-20240418144900-b7402ffdebc7 h1:S/ferNiehVjNaBMNNBxUjLtVmP/YWD6Yh79RfPv4ehU=
 github.com/RomiChan/syncx v0.0.0-20240418144900-b7402ffdebc7/go.mod h1:vD7Ra3Q9onRtojoY5sMCLQ7JBgjUsrXDnDKyFxqpf9w=
 github.com/RomiChan/websocket v1.4.3-0.20220227141055-9b2c6168c9c5 h1:bBmmB7he0iVN4m5mcehfheeRUEer/Avo4ujnxI3uCqs=
