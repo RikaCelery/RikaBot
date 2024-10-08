@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/plugin/quote"
-	"github.com/FloatTech/ZeroBot-Plugin/spider"
+	"net/http"
+
 	"github.com/FloatTech/floatbox/math"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
-	"net/http"
 
-	//"github.com/FloatTech/ZeroBot-Plugin/webctrl"
+	"github.com/FloatTech/ZeroBot-Plugin/spider"
+
+	// "github.com/FloatTech/ZeroBot-Plugin/webctrl"
 	"math/rand"
 	"os"
 	"runtime"
@@ -22,7 +23,7 @@ import (
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/console" // 更改控制台属性
 
-	//"github.com/FloatTech/ZeroBot-Plugin/kanban" // 打印 banner
+	// "github.com/FloatTech/ZeroBot-Plugin/kanban" // 打印 banner
 	//
 	//// ---------以下插件均可通过前面加 // 注释，注释后停用并不加载插件--------- //
 	//// ----------------------插件优先级按顺序从高到低---------------------- //
@@ -49,6 +50,8 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/atri" // ATRI词库
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/manager" // 群管
+
+	_ "github.com/FloatTech/zbputils/job" // 定时指令触发器
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ahsai"            // ahsai tts
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/aifalse"          // 服务器监控
@@ -111,13 +114,13 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/picpick"          // 图片收藏
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/poker"            // 抽扑克
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qqwife"           // 一群一天一夫一妻制群老婆
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/quote"            // 记录群友丢人时刻
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/quote"              // 记录群友丢人时刻
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qzone"            // qq空间表白墙
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/realcugan"        // realcugan清晰术
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/reborn"           // 投胎
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/robbery"          // 打劫群友的ATRI币
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/rss"              // RSS订阅
-	_ "github.com/FloatTech/zbputils/job"                           // 定时指令触发器
+
 	//
 	////                               ^^^^                               //
 	////                          ^^^^^^^^^^^^^^                          //
@@ -229,7 +232,7 @@ func init() {
 	// 直接写死 AccessToken 时，请更改下面第二个参数
 	token := flag.String("t", "", "Set AccessToken of WSClient.")
 	// 直接写死 URL 时，请更改下面第二个参数
-	url := flag.String("u", "ws://127.0.0.1:6700", "Set Url of WSClient.")
+	url := flag.String("u", "ws://127.0.0.1:6700", "Set URL of WSClient.")
 	// 默认昵称
 	adana := flag.String("n", "椛椛", "Set default nickname.")
 	prefix := flag.String("p", "/", "Set command prefix.")
@@ -320,7 +323,6 @@ func init() {
 }
 
 func main() {
-
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r)
@@ -356,7 +358,7 @@ func main() {
 ============================================
 感谢: github.com/FloatTech/ZeroBot-Plugin`))
 		})
-	//zero.OnFullMatch("查看zbp公告", zero.OnlyToMe, zero.AdminPermission).SetBlock(true).
+	// zero.OnFullMatch("查看zbp公告", zero.OnlyToMe, zero.AdminPermission).SetBlock(true).
 	//	Handle(func(ctx *zero.Ctx) {
 	//		ctx.SendChain(message.Text(strings.ReplaceAll(kanban.Kanban(), "\t", "")))
 	//	})
@@ -390,7 +392,7 @@ func main() {
 			ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.Text(err.Error()))
 			return
 		}
-		err, bytes := quote.RenderHistoryImage(http.DefaultClient, string(marshal), false, 50)
+		bytes, err := quote.RenderHistoryImage(http.DefaultClient, string(marshal), false, 50)
 		if err != nil {
 			logrus.Warning("report:", err)
 			ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.Text(err.Error()))

@@ -8,17 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
-	"github.com/FloatTech/floatbox/file"
-	sqlite "github.com/FloatTech/sqlite"
-	"github.com/corona10/goimagehash"
-	"github.com/dustin/go-humanize"
-	"github.com/gabriel-vasile/mimetype"
-	"github.com/mattn/go-runewidth"
-	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
-	zero "github.com/wdvxdr1123/ZeroBot"
-	"github.com/wdvxdr1123/ZeroBot/message"
 	"image"
 	"image/jpeg"
 	"io"
@@ -34,8 +23,22 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FloatTech/floatbox/file"
+	sqlite "github.com/FloatTech/sqlite"
+	"github.com/corona10/goimagehash"
+	"github.com/dustin/go-humanize"
+	"github.com/gabriel-vasile/mimetype"
+	"github.com/mattn/go-runewidth"
+	"github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
+	zero "github.com/wdvxdr1123/ZeroBot"
+	"github.com/wdvxdr1123/ZeroBot/message"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 )
 
+// LastValidatedRKey 缓存上次有效的 rkey
 var LastValidatedRKey = ""
 
 type row struct {
@@ -44,18 +47,18 @@ type row struct {
 }
 
 type forwardInfo struct {
-	Id      int
+	ID      int
 	Images  []fileStruct
 	Videos  []fileStruct
 	Links   []string
 	Magnets []string
-	RawJson string
+	RawJSON string
 }
 type fileStruct struct {
 	Path      string
 	ImageSize int64
 	VideoHash string
-	Url       string
+	URL       string
 }
 
 func (f *fileStruct) Identity() string {
@@ -63,13 +66,12 @@ func (f *fileStruct) Identity() string {
 		return f.VideoHash
 	} else if f.ImageSize != 0 {
 		return strconv.FormatInt(f.ImageSize, 10)
-	} else {
-		return f.Path
 	}
+	return f.Path
 }
 
 type downloadPathInfo struct {
-	Url   string
+	URL   string
 	Type  string
 	Hash  string
 	PHash string
@@ -124,15 +126,15 @@ retry:
 		parsedURL.RawQuery = queryParams.Encode()
 		imageURL = parsedURL.String()
 	}
-	//if ok, _ := caches[imageURL]; ok {
+	// if ok, _ := caches[imageURL]; ok {
 	//	return nil
 	//}
 	// 发送HTTP请求下载图片
 	resp, err := client.Get(imageURL)
 	if err != nil {
-		return fmt.Errorf("Error downloading image: %v", err)
+		return err
 	}
-	//fmt.Printf("%v\n", resp.Header)
+	// fmt.Printf("%v\n", resp.Header)
 	defer resp.Body.Close()
 
 	buf := make([]byte, 1024*1024)
@@ -143,7 +145,7 @@ retry:
 	if err != nil {
 		retryed++
 		if retryed >= 3 {
-			return fmt.Errorf("error determining file type: %v", err)
+			return err
 		}
 		goto retry
 	}
@@ -161,15 +163,18 @@ retry:
 	// 读取响应体并写入到哈希对象，同时保存到临时文件
 	tempFile, err := os.CreateTemp("tmp", "_downloaded_image_*"+fileExt)
 	if err != nil {
-		return fmt.Errorf("failed to create temp file: %v", err)
+		return err
 	}
 	defer os.Remove(tempFile.Name())
 
 	// 复制响应体到哈希对象和临时文件
 	multiWriter := io.MultiWriter(hasher, tempFile)
-	multiWriter.Write(buf[:l])
+	_, err = multiWriter.Write(buf[:l])
+	if err != nil {
+		return err
+	}
 	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
-		return fmt.Errorf("failed to read image: %v", err)
+		return err
 	}
 
 	// 计算文件的 MD5 哈希值
@@ -181,7 +186,7 @@ retry:
 	tempFile.Close()
 	// 将临时文件重命名为最终文件
 	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
-		return fmt.Errorf("failed to save file: %v", err)
+		return err
 	}
 
 	if oc != nil {
@@ -196,9 +201,9 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	// 发送HTTP请求下载图片
 	resp, err := http.Get(videoURL)
 	if err != nil {
-		return fmt.Errorf("Error downloading video: %v, url=%s", err, videoURL)
+		return fmt.Errorf("error downloading video: %v, url=%s", err, videoURL) //nolint:forbidigo
 	}
-	//fmt.Printf("%v\n", resp.Header)
+	// fmt.Printf("%v\n", resp.Header)
 	defer resp.Body.Close()
 
 	buf := make([]byte, 1024*1024)
@@ -207,7 +212,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	// 读取前几个字节以确定文件类型
 	fileExt, err := getFileTypeFromBytes(buf[:l])
 	if err != nil {
-		return fmt.Errorf("error determining file type: %v", err)
+		return err
 	}
 
 	// 创建一个 MD5 哈希对象
@@ -216,15 +221,19 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	// 读取响应体并写入到哈希对象，同时保存到临时文件
 	tempFile, err := os.CreateTemp("tmp", "_downloaded_video_*"+fileExt)
 	if err != nil {
-		return fmt.Errorf("failed to create temp file: %v", err)
+		return err
 	}
 	defer os.Remove(tempFile.Name())
 
 	// 复制响应体到哈希对象和临时文件
 	multiWriter := io.MultiWriter(hasher, tempFile)
-	multiWriter.Write(buf[:l])
+	_, err = multiWriter.Write(buf[:l])
+	if err != nil {
+		logrus.Warnln("[spider] failed to write video:", err)
+		return err
+	}
 	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
-		return fmt.Errorf("failed to write video: %v", err)
+		return err
 	}
 
 	// 计算文件的 MD5 哈希值
@@ -236,7 +245,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	tempFile.Close()
 	// 将临时文件重命名为最终文件
 	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
-		return fmt.Errorf("failed to save file: %v", err)
+		return err
 	}
 
 	if oc != nil {
@@ -251,7 +260,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 func getFileTypeFromBytes(fileType []byte) (string, error) {
 	mime := mimetype.Detect(fileType)
 	// 根据文件头部字节判断文件类型
-	//contentType := http.DetectContentType(fileType)
+	// contentType := http.DetectContentType(fileType)
 	fileExt := mime.Extension()
 	switch mime.String() {
 	case "image/jpeg":
@@ -265,23 +274,23 @@ func getFileTypeFromBytes(fileType []byte) (string, error) {
 	case "video/mp4":
 		fileExt = ".mp4"
 	case "application/json":
-		return "", fmt.Errorf("unsupported file type: %s %s", mime.String(), string(fileType))
+		return "", fmt.Errorf("unsupported file type: %s %s", mime.String(), string(fileType)) //nolint:forbidigo
 	default:
-		return "", fmt.Errorf("unsupported file type: %s", mime.String())
+		return "", fmt.Errorf("unsupported file type: %s(%s)", mime.String(), fileExt) //nolint:forbidigo
 	}
 
 	return fileExt, nil
 }
 
-var downloadDb *sqlite.Sqlite
+var downloadDB *sqlite.Sqlite
 
-func storeImageHashToDB(Url, path, phash, hash string) error {
-	p, _ := url.Parse(Url)
+func storeImageHashToDB(u, path, phash, hash string) error {
+	p, _ := url.Parse(u)
 	query := p.Query()
 	query.Del("rkey")
 	p.RawQuery = query.Encode()
-	err := downloadDb.Insert("downloads", &downloadPathInfo{
-		Url:   p.String(),
+	err := downloadDB.Insert("downloads", &downloadPathInfo{
+		URL:   p.String(),
 		Type:  "image",
 		Hash:  hash,
 		PHash: phash,
@@ -307,17 +316,19 @@ func getImageHashFromFile(filename string) (string, string, error) {
 	md5hash := hex.EncodeToString(sum.Sum(nil))
 	return fmt.Sprintf("%016x", phash.GetHash()), md5hash, nil
 }
-func getHashStored(Url string) (phash string, hash string, err error) {
-	p, _ := url.Parse(Url)
+
+//nolint:unparam
+func getHashStored(u string) (phash string, hash string, err error) {
+	p, _ := url.Parse(u)
 	query := p.Query()
 	query.Del("rkey")
 	p.RawQuery = query.Encode()
-	Url = p.String()
-	if !downloadDb.CanFind("downloads", "where Url = ?", Url) {
+	u = p.String()
+	if !downloadDB.CanFind("downloads", "where URL = ?", u) {
 		return "", "", errors.New("file not downloaded")
 	}
 	info := downloadPathInfo{}
-	err = downloadDb.Find("downloads", &info, "where Url = ?", Url)
+	err = downloadDB.Find("downloads", &info, "where URL = ?", u)
 	if err != nil {
 		return "", "", err
 	}
@@ -325,27 +336,29 @@ func getHashStored(Url string) (phash string, hash string, err error) {
 	hash = info.Hash
 	return
 }
-func hasHashStored(Url string) bool {
-	p, _ := url.Parse(Url)
+func hasHashStored(u string) bool {
+	p, _ := url.Parse(u)
 	query := p.Query()
 	query.Del("rkey")
 	p.RawQuery = query.Encode()
-	Url = p.String()
-	return downloadDb.CanFind("downloads", "where Url = ?", Url)
+	u = p.String()
+	return downloadDB.CanFind("downloads", "where URL = ?", u)
 }
+
+// Init 初始化爬虫
 func Init() {
 	db := &sqlite.Sqlite{DBPath: "spider.db"}
-	downloadDb = &sqlite.Sqlite{DBPath: "downloadDb.db"}
+	downloadDB = &sqlite.Sqlite{DBPath: "downloadDB.db"}
 	err := db.Open(time.Minute)
 	if err != nil {
 		panic(err)
 	}
-	err = downloadDb.Open(time.Minute)
+	err = downloadDB.Open(time.Minute)
 	if err != nil {
 		panic(err)
 	}
 
-	err = downloadDb.Create("downloads", &downloadPathInfo{})
+	err = downloadDB.Create("downloads", &downloadPathInfo{})
 	if err != nil {
 		panic(err)
 	}
@@ -387,18 +400,18 @@ create table if not exists digests
 			return
 		}
 		digest := strings.TrimSpace(plainText[len(zero.BotConfig.CommandPrefix+"digest"):])
-		messageId := replyRegExp.FindStringSubmatch(ctx.MessageString())[1]
-		msg := ctx.GetMessage(messageId)
+		messageID := replyRegExp.FindStringSubmatch(ctx.MessageString())[1]
+		msg := ctx.GetMessage(messageID)
 		if msg.MessageId.ID() == 0 {
-			ctx.Send(fmt.Sprintf("[ERROR]:id为0，未找到消息"))
+			ctx.Send("[ERROR]:id为0，未找到消息")
 			return
 		}
-		forwardId := msg.Elements[0].Data["id"]
-		if !db.CanQuery("select * from forward_hash where forward_id = ?", forwardId) {
-			ctx.Send(fmt.Sprintf("[ERROR]:数据库中不存在该转发消息，请先尝试重新转发"))
+		forwardID := msg.Elements[0].Data["id"]
+		if !db.CanQuery("select * from forward_hash where forward_id = ?", forwardID) {
+			ctx.Send("[ERROR]:数据库中不存在该转发消息，请先尝试重新转发")
 			return
 		}
-		hashStr, err := sqlite.Query[string](db, "select hash from forward_hash where forward_id = ?", forwardId)
+		hashStr, err := sqlite.Query[string](db, "select hash from forward_hash where forward_id = ?", forwardID)
 		if err != nil {
 			ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
 			return
@@ -409,17 +422,17 @@ create table if not exists digests
 			return
 		}
 		logrus.Infof("[spider] 设置成功, %s => %s", hashStr, digest)
-		ctx.Send(fmt.Sprintf("[INFO]:设置成功"))
+		ctx.Send("[INFO]:设置成功")
 	})
 	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
-		Handle(db, ctx)
+		handle(db, ctx)
 	})
 	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
 		netName := ctx.Event.RawEvent.Get("file.name").String()
-		netUrl := ctx.Event.RawEvent.Get("file.url").String()
-		logrus.Infof("[fileStruct] %s %s \n%s", netName, netUrl, ctx.Event.RawEvent.String())
+		netURL := ctx.Event.RawEvent.Get("file.url").String()
+		logrus.Infof("[fileStruct] %s %s \n%s", netName, netURL, ctx.Event.RawEvent.String())
 		if strings.HasSuffix(strings.ToLower(netName), ".apk") || strings.HasSuffix(strings.ToLower(netName), ".apk.1") || strings.HasPrefix(strings.ToLower(netName), "base.apk") || strings.HasPrefix(strings.ToLower(netName), "base(1).apk") || strings.HasPrefix(strings.ToLower(netName), "base(2).apk") || strings.HasPrefix(strings.ToLower(netName), "base(3).apk") {
-			err := file.DownloadTo(netUrl, netName)
+			err := file.DownloadTo(netURL, netName)
 			if err != nil {
 				panic(err)
 			}
@@ -429,7 +442,7 @@ create table if not exists digests
 			}
 			buf := &bytes.Buffer{}
 			if icon != nil {
-				err = jpeg.Encode(buf, *icon, &jpeg.Options{Quality: 60})
+				_ = jpeg.Encode(buf, *icon, &jpeg.Options{Quality: 60})
 			}
 			sdkMin, err := manifest.SDK.Min.Int32()
 			if err != nil {
@@ -467,53 +480,53 @@ create table if not exists digests
 			if icon != nil {
 				msgs = append(msgs, message.ImageBytes(buf.Bytes()))
 			} else {
-				msgs = append(msgs, message.Text(fmt.Sprintf("\n图图炸了！")))
+				msgs = append(msgs, message.Text("\n图图炸了！"))
 			}
 			ctx.SendGroupMessage(ctx.Event.GroupID, msgs)
-
 		}
 	})
 }
 func (f *fileStruct) getHash(download bool) string {
-	if f.ImageSize != 0 {
-		if hasHashStored(f.Url) {
-			phash, _, _ := getHashStored(f.Url)
+	switch {
+	case f.ImageSize != 0:
+		switch {
+		case hasHashStored(f.URL):
+			phash, _, _ := getHashStored(f.URL)
 			return phash
-		} else if download {
+		case download:
 			var oc = make(chan string, 1)
 			defer close(oc)
-			err := downloadImageFromURL(f.Url, oc)
+			err := downloadImageFromURL(f.URL, oc)
 			if err == nil {
 				filename := <-oc
 				phash, hash, err := getImageHashFromFile(filename)
 				if err == nil {
-					err := storeImageHashToDB(f.Url, filename, phash, hash)
+					err := storeImageHashToDB(f.URL, filename, phash, hash)
 					if err != nil {
 						logrus.Errorf("[spider] store ImageHash failed %v", err)
 					}
 				}
 				return phash
-			} else {
-				logrus.Errorf("[spider] getHash, download filed: %v", err)
-				return f.Identity()
 			}
-		} else {
-			logrus.Errorf("[spider] hash not found for %s", f.Url)
+			logrus.Errorf("[spider] getHash, download filed: %v", err)
+			return f.Identity()
+		default:
+			logrus.Errorf("[spider] hash not found for %s", f.URL)
 			return f.Identity()
 		}
-	} else if f.VideoHash != "" {
+	case f.VideoHash != "":
 		return f.Identity()
-	} else {
+	default:
 		panic("both image size and video hash is empty")
 	}
 }
 func hashForward(textContent string, fInfo *forwardInfo, download bool) string {
-	var addi []string
-	addi = append(addi, fmt.Sprintf("%d", len(fInfo.Images)))
-	//TODO
+	var addi = make([]string, 1)
+	addi[0] = fmt.Sprintf("%d", len(fInfo.Images))
+	// TODO
 	for _, img := range fInfo.Images {
-		if hasHashStored(img.Url) {
-			phash, _, _ := getHashStored(img.Url)
+		if hasHashStored(img.URL) {
+			phash, _, _ := getHashStored(img.URL)
 			addi = append(addi, phash)
 		} else {
 			addi = append(addi, img.getHash(download))
@@ -523,8 +536,8 @@ func hashForward(textContent string, fInfo *forwardInfo, download bool) string {
 	for _, video := range fInfo.Videos {
 		addi = append(addi, video.Identity())
 	}
-	//TODO
-	//for _, fileStruct := range fInfo.Files {
+	// TODO
+	// for _, fileStruct := range fInfo.Files {
 	//	textContent += "\nv:" + fileStruct.Identity()
 	//}
 	return hashForward2(textContent, addi)
@@ -539,7 +552,7 @@ func hashForward2(textContent string, addi []string) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
+func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	var images []fileStruct
 	var videos []fileStruct
 	var links []string
@@ -547,34 +560,33 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	var textContent = ""
 	res := gjson.ParseBytes(ctx.Event.NativeMessage)
 	var forwardMsg = false
-	var forwardId string
+	var forwardID string
 
 	for _, result := range res.Array() {
 		msgType := result.Get("type").String()
 		switch msgType {
 		case "forward":
 			forwardMsg = true
-			forwardId = result.Get("data.id").String()
+			forwardID = result.Get("data.id").String()
 			parse(result.Get("data.json"),
 				[]string{
 					"TextEntity",
 					"ImageEntity",
 					"VideoEntity",
 				}, func(res gjson.Result) {
-					if res.Get("type").String() == "TextEntity" {
+					switch res.Get("type").String() {
+					case "TextEntity":
 						s := res.Get("Text").String()
 						textContent += s
-						var urlRegxp, _ = regexp.Compile("https?://(www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)")
-						allString := urlRegxp.FindAllString(s, -1)
-						for _, s2 := range allString {
-							links = append(links, s2)
-						}
-						var magnetRegexp, _ = regexp.Compile("([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})")
+						var urlRegexp = regexp.MustCompile(`https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)`)
+						allString := urlRegexp.FindAllString(s, -1)
+						links = append(links, allString...)
+						var magnetRegexp = regexp.MustCompile(`([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})`)
 						allString = magnetRegexp.FindAllString(s, -1)
 						for _, s2 := range allString {
 							magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
 						}
-					} else if res.Get("type").String() == "ImageEntity" {
+					case "ImageEntity":
 						s, _ := url.Parse(res.Get("ImageUrl").String())
 						values := s.Query()
 						values.Set("appid", "1407")
@@ -582,16 +594,15 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 						images = append(images,
 							fileStruct{
 								Path:      res.Get("FilePath").String(),
-								Url:       s.String(),
+								URL:       s.String(),
 								ImageSize: res.Get("ImageSize").Int(),
 							})
-					} else {
+					default:
 						videos = append(videos,
 							fileStruct{
 								Path: res.Get("FilePath").String(),
-								Url:  res.Get("VideoUrl").String(),
+								URL:  res.Get("VideoUrl").String(),
 							})
-
 					}
 				})
 		case "text":
@@ -627,12 +638,12 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	var send = ""
 	var forwardHash = ""
 	info := &forwardInfo{
-		Id:      int(ctx.Event.MessageID.(int64)),
+		ID:      int(ctx.Event.MessageID.(int64)),
 		Images:  images,
 		Links:   links,
 		Magnets: magnets,
 		Videos:  videos,
-		RawJson: string(ctx.Event.NativeMessage),
+		RawJSON: string(ctx.Event.NativeMessage),
 	}
 	if forwardMsg {
 		forwardHash = hashForward(textContent, info, true)
@@ -645,9 +656,12 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 				logrus.Errorf("[spider] %v", err)
 			}
 		}
-		if db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash) {
-		} else {
-			db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", forwardId, forwardHash)
+		if !db.CanQuery("select * from forward_hash(forward_id,hash) values (?,?)", forwardID, forwardHash) {
+			_, err := db.DB.Exec("replace into forward_hash(forward_id,hash) values (?,?)", forwardID, forwardHash)
+			if err != nil {
+				logrus.Errorf("[spider] replace forward_hash failed %v", err)
+				return
+			}
 		}
 	}
 	if len(info.Links) != 0 {
@@ -671,14 +685,22 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 
 	marshal, _ := json.Marshal(info)
 	var r row
-	err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.Id))
+	err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.ID))
 	if err == nil {
-		db.Del("infos", fmt.Sprintf("where ID=%d", info.Id))
+		err := db.Del("infos", fmt.Sprintf("where ID=%d", info.ID))
+		if err != nil {
+			logrus.Errorf("[spider] del failed %v", err)
+			return
+		}
 	}
-	db.Insert("infos", &row{
-		ID:   info.Id,
+	err = db.Insert("infos", &row{
+		ID:   info.ID,
 		Name: string(marshal),
 	})
+	if err != nil {
+		logrus.Errorf("[spider] insert failed %v", err)
+		return
+	}
 	// download
 	if len(info.Links) == 0 {
 		goto sendLinkEnd
@@ -686,7 +708,7 @@ func Handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 sendLinkEnd:
 	var oc = make(chan string, len(info.Images))
 	if len(info.Images) != 0 {
-		//client := http.Client{}
+		// client := http.Client{}
 		var wg = sync.WaitGroup{}
 		var imgFiles []string
 		for _, img := range info.Images {
@@ -696,9 +718,10 @@ sendLinkEnd:
 				defer func() {
 					wg.Done()
 					if r := recover(); r != nil {
+						logrus.Warnln("[spider] panic:", r)
 					}
 				}()
-				err := downloadImageFromURL(img.Url, oc)
+				err := downloadImageFromURL(img.URL, oc)
 				if err != nil {
 					logrus.Warnln("[spider] download Failed", img, err.Error())
 					return
@@ -725,16 +748,20 @@ sendLinkEnd:
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				os.Mkdir("videotmp", 0750)
+				err := os.Mkdir("videotmp", 0750)
+				if err != nil {
+					logrus.Infof("[spider] failed to mkdir `videotmp`: %v", err)
+					return
+				}
 				fname := path.Join("videotmp", video.Path)
 				if _, err := os.Stat(fname); err == nil {
 					logrus.Infoln("[spider] exist", video)
 					return
-
 				}
 
-				resp, err2 := client.Get(video.Url)
+				resp, err2 := client.Get(video.URL)
 				if err2 != nil {
+					resp.Body.Close()
 					logrus.Warnln("[spider] ", err2)
 					return
 				}
@@ -743,7 +770,7 @@ sendLinkEnd:
 				if err2 != nil {
 					return
 				}
-				_, err := io.Copy(openFile, resp.Body)
+				_, err = io.Copy(openFile, resp.Body)
 				if err != nil {
 					openFile.Close()
 					os.Remove(fname)
@@ -766,7 +793,7 @@ func parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 		}
 		return
 	case "TextEntity":
-		//logrus.Debugf("[spider] Text: %s\n", result.Get("Text").String())
+		// logrus.Debugf("[spider] Text: %s\n", result.Get("Text").String())
 
 		for i := range filter {
 			if filter[i] == t {
@@ -775,7 +802,7 @@ func parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 		}
 		return
 	case "VideoEntity":
-		//logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
+		// logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
 		for i := range filter {
 			if filter[i] == t {
 				callback(result)
@@ -783,7 +810,7 @@ func parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 		}
 
 	case "ImageEntity":
-		//logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
+		// logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
 		for i := range filter {
 			if filter[i] == t {
 				callback(result)
@@ -798,5 +825,5 @@ func parse(result gjson.Result, filter []string, callback func(res gjson.Result)
 	case "XmlEntity":
 		return
 	}
-	//logrus.Debugf("[spider] type: %s\n", t)
+	// logrus.Debugf("[spider] type: %s\n", t)
 }

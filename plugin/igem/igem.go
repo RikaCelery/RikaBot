@@ -1,17 +1,19 @@
+// Package igem igem team renderer
 package igem
 
 import (
 	"bytes"
-	ctrl "github.com/FloatTech/zbpctrl"
-	"github.com/FloatTech/zbputils/control"
-	zero "github.com/wdvxdr1123/ZeroBot"
-	"github.com/wdvxdr1123/ZeroBot/extension/single"
-	"github.com/wdvxdr1123/ZeroBot/message"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	ctrl "github.com/FloatTech/zbpctrl"
+	"github.com/FloatTech/zbputils/control"
+	zero "github.com/wdvxdr1123/ZeroBot"
+	"github.com/wdvxdr1123/ZeroBot/extension/single"
+	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
 func init() {
@@ -30,7 +32,6 @@ func init() {
 		Timeout: time.Minute * 5,
 	}
 	engine.OnCommand("igem").SetBlock(true).Handle(func(ctx *zero.Ctx) {
-
 		link := ctx.State["args"].(string)
 		link = strings.TrimSpace(link)
 		p, _ := url.Parse("http://localhost:8888/igem")

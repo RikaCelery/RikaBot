@@ -289,7 +289,7 @@ func init() {
 var (
 	noteMap = map[string]uint8{
 		"C":  60,
-		"Db": 61,
+		"DB": 61,
 		"D":  62,
 		"Eb": 63,
 		"E":  64,

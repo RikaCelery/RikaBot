@@ -4,12 +4,13 @@ package webctrl
 import (
 	"context"
 	"embed"
-	"github.com/FloatTech/zbputils/control/web/model"
-	"github.com/FloatTech/zbputils/control/web/router"
 	"io/fs"
 	"net/http"
 	"runtime/debug"
 	"strings"
+
+	"github.com/FloatTech/zbputils/control/web/model"
+	"github.com/FloatTech/zbputils/control/web/router"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +35,7 @@ func init() {
 				return
 			}
 			ctx.SendChain(message.Text("设置成功"))
-			if zero.BotConfig.SuperUsers != nil && len(zero.BotConfig.SuperUsers) > 0 {
+			if len(zero.BotConfig.SuperUsers) > 0 {
 				ctx.SendPrivateMessage(zero.BotConfig.SuperUsers[0], message.Text("webui账号\n用户名: ", regexMatched[1], "\n密码: ", regexMatched[2]))
 			}
 		})
@@ -53,6 +54,7 @@ func init() {
 }
 
 //go:embed dist
+//nolint:all
 var Dist embed.FS
 
 // RunGui 运行webui

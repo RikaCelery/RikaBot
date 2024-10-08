@@ -1,14 +1,16 @@
+// Package huntercode 怪猎集会码集中管理
 package huntercode
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"strings"
-	"time"
 )
 
 var (
@@ -32,13 +34,13 @@ var (
 )
 
 type code struct {
-	Id        int
+	ID        int
 	Value     string
 	Time      int64
 	IsPublic  bool
-	GroupId   int64
+	GroupID   int64
 	Type      string
-	SenderUid int64
+	SenderUID int64
 }
 
 func (c code) PublicStr() string {
@@ -50,43 +52,52 @@ func (c code) PublicStr() string {
 
 func (c code) HumanReadableTime() string {
 	t := time.Unix(c.Time, 0)
-	diff := time.Now().Sub(t)
+	diff := time.Since(t)
 	if diff.Hours() < 1 {
 		return fmt.Sprintf("%.1f分钟前", diff.Minutes())
 	}
 	return t.Format("15:04:05")
 }
 
-func removeOlds() {
+func removeOlds() error {
 	// remove lase day
 	t := time.Now()
-	db.Del("codes", "where Time < ?", time.Date(t.Year(), t.Month(), t.Day(), 4, 0, 0, 0, t.Location()).Unix())
+	err := db.Del("codes", "where Time < ?", time.Date(t.Year(), t.Month(), t.Day(), 4, 0, 0, 0, t.Location()).Unix())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // insert 忽略ID
 func insert(c *code) error {
-	_, err := db.DB.Exec(`replace into codes(Value,Time,IsPublic,GroupId,Type,SenderUid) values(?,?,?,?,?,?)`, c.Value, c.Time, c.IsPublic, c.GroupId, c.Type, c.SenderUid)
+	_, err := db.DB.Exec(`replace into codes(Value,Time,IsPublic,GroupID,Type,SenderUID) values(?,?,?,?,?,?)`, c.Value, c.Time, c.IsPublic, c.GroupID, c.Type, c.SenderUID)
 	return err
 }
 func remove(gid int64, codeType string) error {
-	err := db.Del("codes", "WHERE GroupId=? and Type=? ", gid, codeType)
+	err := db.Del("codes", "WHERE GroupID=? and Type=? ", gid, codeType)
 	return err
 }
+
+//nolint:unused
 func canFind(gid int64, codeType string, isPublic bool) bool {
-	return db.CanFind("codes", "WHERE GroupId=? and Type=? and IsPublic=?", gid, codeType, isPublic)
+	return db.CanFind("codes", "WHERE GroupID=? and Type=? and IsPublic=?", gid, codeType, isPublic)
 }
+
+//nolint:unused
 func find(gid int64, codeType string, isPublic bool) (c *code, err error) {
-	err = db.Find("codes", c, "WHERE GroupId=? and Type=? and IsPublic=?", gid, codeType, isPublic)
+	c = &code{}
+	err = db.Find("codes", c, "WHERE GroupID=? and Type=? and IsPublic=?", gid, codeType, isPublic)
 	return c, err
 }
 
 func findFor(gid int64, codeType string) []*code {
 	ret := []*code{}
-	all, err := sql.FindAll[code](db, "codes", "where GroupId=? and Type=?", gid, codeType)
+	all, err := sql.FindAll[code](db, "codes", "where GroupID=? and Type=?", gid, codeType)
 	if err == nil {
 		ret = append(ret, all...)
 	}
-	public, err := sql.FindAll[code](db, "codes", "where GroupId<>? and Type=? and IsPublic=?", gid, codeType, true)
+	public, err := sql.FindAll[code](db, "codes", "where GroupID<>? and Type=? and IsPublic=?", gid, codeType, true)
 	if err == nil {
 		ret = append(ret, public...)
 	}
@@ -98,19 +109,22 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	db.DB.Exec(`
+	_, err = db.DB.Exec(`
 create table if not exists codes(
-    Id integer not null primary key autoincrement,
+    ID integer not null primary key autoincrement,
     Value text not null,
     Time integer not null,
     IsPublic integer not null,
-    GroupId integer not null,
+    GroupID integer not null,
     Type text not null,
-    SenderUid integer not null 
+    SenderUID integer not null 
 );
 create unique index if not exists codes_value_groupid_uindex ON codes
-    (Value,GroupId,Type)
+    (Value,GroupID,Type)
 `)
+	if err != nil {
+		panic(err)
+	}
 	engine.OnCommand("清除集会码", zero.OnlyGroup, zero.AdminPermission, zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
 		if len(args) == 0 {
 			// 确认删除所有
@@ -159,7 +173,7 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 	})
 	engine.OnCommandGroup([]string{"世界集会码", "崛起集会码"}, zero.OnlyGroup).SetBlock(true).Handle(listCodes)
 	engine.OnCommandGroup([]string{"世界", "崛起"}, zero.OnlyGroup, zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
-		//TODO check format
+		// TODO check format
 		if len(args) == 1 {
 			args = append(args, "私密")
 		}
@@ -176,13 +190,13 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 			return
 		}
 		err := insert(&code{
-			Id:        -1,
+			ID:        -1,
 			Value:     args[0],
 			Time:      time.Now().Unix(),
 			IsPublic:  args[1] == "公开",
-			GroupId:   ctx.Event.GroupID,
+			GroupID:   ctx.Event.GroupID,
 			Type:      ctx.State["command"].(string),
-			SenderUid: ctx.Event.Sender.ID,
+			SenderUID: ctx.Event.Sender.ID,
 		})
 		if err != nil {
 			ctx.SendChain(message.Text("ERROR:", err))
@@ -193,7 +207,10 @@ create unique index if not exists codes_value_groupid_uindex ON codes
 }
 
 func listCodes(ctx *zero.Ctx) {
-	removeOlds()
+	err := removeOlds()
+	if err != nil {
+		ctx.SendChain(message.Text("ERROR: 无法删除旧集会码,", err))
+	}
 	switch ctx.State["command"].(string) {
 	case "世界集会码":
 		codes := findFor(ctx.Event.GroupID, "世界")
@@ -201,13 +218,13 @@ func listCodes(ctx *zero.Ctx) {
 			buf := strings.Builder{}
 			for _, c := range codes {
 				if c.IsPublic {
-					buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.Id, c.Value, c.HumanReadableTime(), c.PublicStr()))
+					buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.ID, c.Value, c.HumanReadableTime(), c.PublicStr()))
 				} else {
-					nick := ctx.GetThisGroupMemberInfo(c.SenderUid, true).Get("card").String()
+					nick := ctx.GetThisGroupMemberInfo(c.SenderUID, true).Get("card").String()
 					if nick == "" {
-						nick = ctx.GetThisGroupMemberInfo(c.SenderUid, true).Get("card").String()
+						nick = ctx.GetThisGroupMemberInfo(c.SenderUID, true).Get("card").String()
 					}
-					buf.WriteString(fmt.Sprintf("%d: %s %s 来自:%s[%d] %s\n", c.Id, c.Value, c.HumanReadableTime(), nick, c.SenderUid, c.PublicStr()))
+					buf.WriteString(fmt.Sprintf("%d: %s %s 来自:%s[%d] %s\n", c.ID, c.Value, c.HumanReadableTime(), nick, c.SenderUID, c.PublicStr()))
 				}
 			}
 			ctx.SendChain(message.Text("世界集会码：\n", strings.TrimSpace(buf.String())))
@@ -219,12 +236,11 @@ func listCodes(ctx *zero.Ctx) {
 		if len(codes) > 0 {
 			buf := strings.Builder{}
 			for _, c := range codes {
-				buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.Id, c.Value, c.HumanReadableTime(), c.PublicStr()))
+				buf.WriteString(fmt.Sprintf("%d: %s %s %s\n", c.ID, c.Value, c.HumanReadableTime(), c.PublicStr()))
 			}
 			ctx.SendChain(message.Text("崛起集会码：\n", strings.TrimSpace(buf.String())))
 		} else {
 			ctx.SendChain(message.Text("崛起集会码：无"))
 		}
 	}
-
 }

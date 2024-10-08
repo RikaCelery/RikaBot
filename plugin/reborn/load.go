@@ -8,6 +8,8 @@ import (
 )
 
 // load 加载rate数据
+//
+//nolint:unused
 func load(area *rate, jsonfile string) error {
 	data, err := file.GetLazyData(jsonfile, control.Md5File, true)
 	if err != nil {

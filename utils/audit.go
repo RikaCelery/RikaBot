@@ -1,20 +1,22 @@
 package utils
 
 import (
+	"strings"
+	"time"
+
 	"github.com/FloatTech/floatbox/file"
 	"github.com/FloatTech/ttl"
 	"github.com/mattn/go-runewidth"
 	log "github.com/sirupsen/logrus"
-	"strings"
-	"time"
 )
 
 var cache = ttl.NewCache[string, []string](24 * time.Hour)
 
+// FilterSensitive 过滤敏感词
 func FilterSensitive(s string) string {
 	key := "零时-Tencent.txt"
 	v := cache.Get(key)
-	if v == nil || len(v) == 0 {
+	if len(v) == 0 {
 		open, err := file.GetCustomLazyData("https://raw.githubusercontent.com/konsheng/Sensitive-lexicon/main/Vocabulary/", "filter_words/"+key)
 		if err != nil {
 			panic(err)

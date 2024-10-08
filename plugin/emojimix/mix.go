@@ -2,7 +2,15 @@
 package emojimix
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/sirupsen/logrus"
@@ -10,12 +18,6 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/extension/rate"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"modernc.org/sortutil"
-	"net/http"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 )
 
 const bed = "https://www.gstatic.com/android/keyboard/emojikitchen/%s/%s/%s_%s.png"
@@ -84,17 +86,16 @@ func init() {
 	}).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			r := ctx.State["emojimix"].([]string)
-			_, slug := emojiToHashSlug(r[0])
-			u1 := emojiHashToWebpUrl(slug)
+			slug, _ := emojiToHashSlug(r[0])
+			u1 := emojiHashToWebpURL(slug)
 			resp1, err := http.Head(u1)
 			if err == nil {
 				resp1.Body.Close()
 				if resp1.StatusCode == http.StatusOK {
 					ctx.SendChain(message.Image(u1))
 					return
-				} else {
-					ctx.SendChain(message.Text(fmt.Sprintf("%s找不到这个表情的动图", zero.BotConfig.NickName[0])))
 				}
+				ctx.SendChain(message.Text(fmt.Sprintf("%s找不到这个表情的动图", zero.BotConfig.NickName[0])))
 			} else {
 				ctx.Send(fmt.Sprintf("ERROR: %v", err))
 			}
@@ -108,7 +109,7 @@ func match(ctx *zero.Ctx) bool {
 		ctx.Event.Message[0].Data["text"] = strings.TrimSpace(ctx.Event.Message[0].Data["text"][1:])
 	} else {
 		ctx.State["emojimix_command"] = false
-		//return false
+		// return false
 	}
 	emojis := extractEmoji(ctx.Event.Message)
 	logrus.Debugln("[emojimix] emojis:", emojis)
@@ -127,7 +128,6 @@ func match(ctx *zero.Ctx) bool {
 	}
 	ctx.State["emojimix"] = emojis[:n]
 	return true
-
 }
 
 func extractEmoji(msg message.Message) (emojis []string) {
@@ -143,13 +143,11 @@ func extractEmoji(msg message.Message) (emojis []string) {
 				return
 			}
 			emojis = append(emojis, emojiRx.FindAllString(segment.Data["text"], -1)...)
-			break
 		case "face":
 			faceMapped := face2emoji(segment)
 			if faceMapped != "" {
 				emojis = append(emojis, faceMapped)
 			}
-			break
 		}
 	}
 	return emojis
@@ -163,9 +161,9 @@ func isContinuous(loc [][]int) bool {
 	}
 	return true
 }
-func emojiToHashSlug(emoji string) (err error, hashSlug string) {
+func emojiToHashSlug(emoji string) (hashSlug string, err error) {
 	if !emojiRx.MatchString(emoji) {
-		return fmt.Errorf("`emoji` must be single emoji"), ""
+		return "", errors.New("`emoji` must be single emoji")
 	}
 	runes := []rune(emoji)
 	buf := strings.Builder{}
@@ -176,25 +174,24 @@ func emojiToHashSlug(emoji string) (err error, hashSlug string) {
 			buf.WriteString("-")
 		}
 	}
-	return nil, buf.String()
+	return buf.String(), nil
 }
-func emojiHashToWebpUrl(hashSlug string) string {
+func emojiHashToWebpURL(hashSlug string) string {
 	return fmt.Sprintf(animated, strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(hashSlug, "-ufe0f", ""), "u", ""), "-", "_"))
 }
 func mixEmoji(emoji1, emoji2 string, swap bool) string {
 	if swap {
 		emoji1, emoji2 = emoji2, emoji1
 	}
-	_, slug := emojiToHashSlug(emoji1)
-	_, uslug1 := emojiToHashSlug(emoji1)
-	_, uslug2 := emojiToHashSlug(emoji2)
+	slug, _ := emojiToHashSlug(emoji1)
+	uslug1, _ := emojiToHashSlug(emoji1)
+	uslug2, _ := emojiToHashSlug(emoji2)
 	folder, ok := emojis[slug]
 	if !ok {
 		println(slug)
 		return ""
 	}
 	return fmt.Sprintf(bed, folder, uslug1, uslug1, uslug2)
-
 }
 func face2emoji(face message.MessageSegment) string {
 	id, err := strconv.Atoi(face.Data["id"])

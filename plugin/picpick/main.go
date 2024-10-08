@@ -1,3 +1,4 @@
+// Package picpick 简单图片收藏
 package picpick
 
 import (
@@ -7,7 +8,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/spider"
+	"image"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/FloatTech/floatbox/math"
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -18,63 +28,58 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"image"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
+
+	"github.com/FloatTech/ZeroBot-Plugin/spider"
 )
 
 var db = &picPickDB{}
 
 type picPickDB struct {
-	Db   *sql.Sqlite
+	DB   *sql.Sqlite
 	lock *sync.Mutex
 }
 type fileEntity struct {
-	Id    int
+	ID    int
 	Path  string
 	PHash string
 	Md5   string
 }
 type picWithFilePath struct {
-	FileId int `db:"file_id"`
-	PicId  int `db:"pic_id"`
+	FileID int `db:"file_id"`
+	PicID  int `db:"pic_id"`
 	Path   string
 }
 type picEntity struct {
-	Id     int
-	FileId int
+	ID     int
+	FileID int
 }
+
+//nolint:unused
 type picTag struct {
-	Id    int
+	ID    int
 	Tag   string
-	PicId int
+	PicID int
 }
 
 var (
-	errPicNotFound = fmt.Errorf("pic not found")
+	errPicNotFound = errors.New("pic not found")
 )
 
-func (p *picPickDB) createDb(engine *control.Engine) error {
-	if p.Db == nil {
-		p.Db = &sql.Sqlite{
+func (p *picPickDB) createDB(engine *control.Engine) error {
+	if p.DB == nil {
+		p.DB = &sql.Sqlite{
 			DBPath: engine.DataFolder() + "picpick.db",
 		}
 		p.lock = &sync.Mutex{}
 	}
-	err := p.Db.Open(time.Hour)
+	err := p.DB.Open(time.Hour)
 	if err != nil {
 		return err
 	}
-	_, err = p.Db.DB.Exec(`
+	_, err = p.DB.DB.Exec(`
 create table if not exists files
 (
-    Id    INTEGER not null
+    ID    INTEGER not null
         primary key autoincrement,
     Path  TEXT    not null,
     PHash TEXT    not null,
@@ -86,9 +91,9 @@ create unique index if not exists files_Path_uindex
 
 create table if not exists pics
 (
-    Id     INTEGER not null,
-    FileId INTEGER not null,
-    primary key (Id, FileId)
+    ID     INTEGER not null,
+    FileID INTEGER not null,
+    primary key (ID, FileID)
 );
 
 create table if not exists tags
@@ -96,11 +101,11 @@ create table if not exists tags
     id    INTEGER not null
         primary key autoincrement,
     Tag   TEXT    not null,
-    PicId INTEGER not null
+    PicID INTEGER not null
 );
 
 create unique index if not exists tags_PicId_Tag_uindex
-    on tags (PicId, Tag);
+    on tags (PicID, Tag);
 
 
 `)
@@ -109,77 +114,77 @@ create unique index if not exists tags_PicId_Tag_uindex
 	}
 	return nil
 }
-func (p *picPickDB) getPicByFileId(fileId int) (*picEntity, error) {
-	if !db.Db.CanFind("pics", "where FileId = "+strconv.Itoa(fileId)) {
+func (p *picPickDB) getPicByFileID(fileID int) (*picEntity, error) {
+	if !db.DB.CanFind("pics", "where FileID = "+strconv.Itoa(fileID)) {
 		return nil, errPicNotFound
 	}
 	var find = &picEntity{}
-	err := p.Db.Find("pics", find, "where FileId = "+strconv.Itoa(fileId))
+	err := p.DB.Find("pics", find, "where FileID = "+strconv.Itoa(fileID))
 	if err != nil {
 		return nil, err
 	}
 	return find, nil
 }
-func (p *picPickDB) delPicById(picId int) error {
-	if !db.Db.CanFind("pics", "where Id = "+strconv.Itoa(picId)) {
+func (p *picPickDB) delPicByID(picID int) error {
+	if !db.DB.CanFind("pics", "where ID = "+strconv.Itoa(picID)) {
 		return errPicNotFound
 	}
-	err := p.Db.Del("pics", "where Id = ?", picId)
+	err := p.DB.Del("pics", "where ID = ?", picID)
 	if err != nil {
 		return err
 	}
-	err = p.Db.Del("tags", "where PicId = ?", picId)
+	err = p.DB.Del("tags", "where PicID = ?", picID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func (p *picPickDB) delFileByPicId(fileId int) error {
-	if !db.Db.CanFind("pics", "where Id = "+strconv.Itoa(fileId)) {
+func (p *picPickDB) delFileByPicID(fileID int) error {
+	if !db.DB.CanFind("pics", "where ID = "+strconv.Itoa(fileID)) {
 		return errPicNotFound
 	}
-	pic, err := sql.Find[picEntity](p.Db, "pics", "where Id = ?", fileId)
+	pic, err := sql.Find[picEntity](p.DB, "pics", "where ID = ?", fileID)
 	if err != nil {
 		return err
 	}
-	err = p.Db.Del("files", "where Id = ?", pic.FileId)
+	err = p.DB.Del("files", "where ID = ?", pic.FileID)
 	if err != nil {
 		return err
 	}
-	err = p.Db.Del("pics", "where Id = ?", pic.Id)
+	err = p.DB.Del("pics", "where ID = ?", pic.ID)
 	if err != nil {
 		return err
 	}
-	err = p.Db.Del("tags", "where PicId = ?", pic.Id)
+	err = p.DB.Del("tags", "where PicID = ?", pic.ID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 func (p *picPickDB) getAllTags() ([]string, error) {
-	find, err := sql.QueryAll[string](p.Db, "select distinct Tag from tags")
+	find, err := sql.QueryAll[string](p.DB, "select distinct Tag from tags")
 	if err != nil {
 		return nil, err
 	}
-	var ret []string
-	for _, v := range find {
-		ret = append(ret, *v)
+	var ret = make([]string, len(find))
+	for i, v := range find {
+		ret[i] = *v
 	}
 	return ret, nil
 }
 func (p *picPickDB) getFilesByTags(tags []string, count int, random bool) ([]*picWithFilePath, error) {
 	buf := strings.Builder{}
-	for i, _ := range tags {
+	for i := range tags {
 		if i == 0 {
-			buf.WriteString(fmt.Sprintf(`select distinct f.Id as file_id, t0.PicId as pic_id,f.Path as Path from tags t%d
-         join pics p on p.Id = t0.PicId
-         join files f on f.Id = p.FileId`, i))
+			buf.WriteString(fmt.Sprintf(`select distinct f.ID as file_id, t0.PicID as pic_id,f.Path as Path from tags t%d
+         join pics p on p.ID = t0.PicID
+         join files f on f.ID = p.FileID`, i))
 			continue
 		}
 		buf.WriteString(fmt.Sprintf(`
-         join tags t%d on t0.PicId = t%d.PicId`, i, i))
+         join tags t%d on t0.PicID = t%d.PicID`, i, i))
 	}
-	for i, _ := range tags {
+	for i := range tags {
 		if i == 0 {
 			buf.WriteString(fmt.Sprintf(`
 where t%d.Tag = ? `, i))
@@ -197,24 +202,24 @@ order by random()`)
 limit %d`, count))
 	}
 	logrus.Debug("[picpick] execute sql: ", buf.String())
-	var args []interface{}
-	for _, tag := range tags {
-		args = append(args, tag)
+	var args = make([]interface{}, len(tags))
+	for i, tag := range tags {
+		args[i] = tag
 	}
-	if !p.Db.CanQuery(buf.String(), args...) {
+	if !p.DB.CanQuery(buf.String(), args...) {
 		return make([]*picWithFilePath, 0), nil
 	}
-	row, err := sql.QueryAll[picWithFilePath](p.Db, buf.String(), args...)
+	row, err := sql.QueryAll[picWithFilePath](p.DB, buf.String(), args...)
 	if err != nil {
 		return nil, err
 	}
 	return row, nil
 }
 
-// func (p *picPickDB) getPicsByFileId(FileId int) (pics []*picEntity, err error) {
+// func (p *picPickDB) getPicsByFileId(FileID int) (pics []*picEntity, err error) {
 // }
 func (p *picPickDB) getFilesByPHash(phash string, distance int) (files []*fileEntity, err error) {
-	if !p.Db.CanFind("files", "") {
+	if !p.DB.CanFind("files", "") {
 		return make([]*fileEntity, 0), nil
 	}
 
@@ -225,7 +230,7 @@ func (p *picPickDB) getFilesByPHash(phash string, distance int) (files []*fileEn
 		return nil, err
 	}
 	hash := goimagehash.NewImageHash(parseUint, goimagehash.PHash)
-	err = p.Db.FindFor("files", t, "", func() error {
+	err = p.DB.FindFor("files", t, "", func() error {
 		parseUint, _ := strconv.ParseUint(t.PHash, 16, 64)
 		hash2 := goimagehash.NewImageHash(parseUint, goimagehash.PHash)
 		i, err := hash.Distance(hash2)
@@ -234,7 +239,7 @@ func (p *picPickDB) getFilesByPHash(phash string, distance int) (files []*fileEn
 		}
 		if i <= distance {
 			ret = append(ret, &fileEntity{
-				Id:    t.Id,
+				ID:    t.ID,
 				Path:  t.Path,
 				PHash: t.PHash,
 				Md5:   t.Md5,
@@ -249,7 +254,7 @@ func (p *picPickDB) getFilesByPHash(phash string, distance int) (files []*fileEn
 }
 
 //
-//func (p *picPickDB) getFilesByMd5(md5 string) (file *fileEntity, err error) {
+// func (p *picPickDB) getFilesByMd5(md5 string) (file *fileEntity, err error) {
 //}
 
 func (p *picPickDB) InsertFile(path string, phash string, md5 string) (int, error) {
@@ -257,46 +262,46 @@ func (p *picPickDB) InsertFile(path string, phash string, md5 string) (int, erro
 	defer p.lock.Unlock()
 	var id = 0
 	var err error
-	if p.Db.CanFind("files", "") {
-		id, err = sql.Query[int](p.Db, "select id from files order by id desc limit 1;")
+	if p.DB.CanFind("files", "") {
+		id, err = sql.Query[int](p.DB, "select id from files order by id desc limit 1;")
 		if err != nil {
 			return 0, err
 		}
 	}
 	id++
-	_, err = p.Db.DB.Exec(`replace into files (Id,Path, PHash, md5) values (?,?,?,?);`, id, path, phash, md5)
+	_, err = p.DB.DB.Exec(`replace into files (ID,Path, PHash, md5) values (?,?,?,?);`, id, path, phash, md5)
 	if err != nil {
 		return 0, err
 	}
 	return id, nil
 }
-func (p *picPickDB) InsertPic(fileId int) (int, error) {
+func (p *picPickDB) InsertPic(fileID int) (int, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	var id = 0
 	var err error
-	if p.Db.CanFind("pics", "") {
-		id, err = sql.Query[int](p.Db, "select id from pics order by id desc limit 1;")
+	if p.DB.CanFind("pics", "") {
+		id, err = sql.Query[int](p.DB, "select id from pics order by id desc limit 1;")
 		if err != nil {
 			return 0, err
 		}
 	}
 	id++
-	_, err = p.Db.DB.Exec(`insert into pics (Id,FileId) values (?,?);`, id, fileId)
+	_, err = p.DB.DB.Exec(`insert into pics (ID,FileID) values (?,?);`, id, fileID)
 	if err != nil {
 		return 0, err
 	}
 	return id, nil
 }
-func (p *picPickDB) InsertPicTags(tags []string, picId int) error {
+func (p *picPickDB) InsertPicTags(tags []string, picID int) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	tx, err := p.Db.DB.Begin()
+	tx, err := p.DB.DB.Begin()
 	if err != nil {
 		return err
 	}
 	for _, tag := range tags {
-		_, err = tx.Exec("replace into tags(PicId, Tag) VALUES (?,?)", picId, tag)
+		_, err = tx.Exec("replace into tags(PicID, Tag) VALUES (?,?)", picID, tag)
 		if err != nil {
 			return err
 		}
@@ -324,7 +329,7 @@ func init() {
 - {prefix}pic file rm <id> 删除某个id的文件，如果该文件被其他图片引用，则一并删除`,
 		PrivateDataFolder: "picPick",
 	})
-	err := db.createDb(engine)
+	err := db.createDB(engine)
 	client := &http.Client{}
 	if err != nil {
 		panic(err)
@@ -371,33 +376,33 @@ func init() {
 						if err != nil || len(files) > 1 {
 							files = make([]*fileEntity, 0)
 						}
-						fileId := -1
+						var fileID int
 						if len(files) == 0 {
-							fileId, err = db.InsertFile(fileName, phash, hashMd5)
+							fileID, err = db.InsertFile(fileName, phash, hashMd5)
 							if err != nil {
 								ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
 								return
 							}
 						} else {
-							fileId = files[0].Id
+							fileID = files[0].ID
 						}
-						var picId = -1
-						entity, err := db.getPicByFileId(fileId)
+						var picID int
+						entity, err := db.getPicByFileID(fileID)
 						if err == nil {
-							picId = entity.Id
+							picID = entity.ID
 						} else {
-							picId, err = db.InsertPic(fileId)
+							picID, err = db.InsertPic(fileID)
 							if err != nil {
 								ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
 								return
 							}
 						}
-						err = db.InsertPicTags(tags, picId)
+						err = db.InsertPicTags(tags, picID)
 						if err != nil {
 							ctx.Send(fmt.Sprintf("[ERROR]:%v", err))
 							return
 						}
-						ctx.Send(fmt.Sprintf("√ -> %d", picId))
+						ctx.Send(fmt.Sprintf("√ -> %d", picID))
 					}
 				}
 			}
@@ -415,7 +420,7 @@ func init() {
 		}
 		var msgs []message.MessageSegment
 		for _, file := range files {
-			msgs = append(msgs, message.Text(file.PicId))
+			msgs = append(msgs, message.Text(file.PicID))
 			readFile, err := os.ReadFile(file.Path)
 			if err != nil {
 				ctx.SendChain(message.Text("[ERROR]:", err))
@@ -424,35 +429,32 @@ func init() {
 			msgs = append(msgs, message.ImageBytes(readFile))
 		}
 		ctx.Send(msgs)
-
 	})
 	engine.OnCommand("pic rm", zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		picId, err := strconv.Atoi(ctx.State["args"].(string))
+		picID, err := strconv.Atoi(ctx.State["args"].(string))
 		if err != nil {
 			ctx.SendChain(message.Text("[ERROR]:", err))
 			return
 		}
-		err = db.delPicById(picId)
+		err = db.delPicByID(picID)
 		if errors.Is(err, errPicNotFound) {
 			ctx.SendChain(message.Text("[ERROR]:没有找到图片"))
 			return
 		}
 		ctx.Send("删除成功")
-
 	})
 	engine.OnCommand("pic file rm", zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		picId, err := strconv.Atoi(ctx.State["args"].(string))
+		picID, err := strconv.Atoi(ctx.State["args"].(string))
 		if err != nil {
 			ctx.SendChain(message.Text("[ERROR]:", err))
 			return
 		}
-		err = db.delFileByPicId(picId)
+		err = db.delFileByPicID(picID)
 		if errors.Is(err, errPicNotFound) {
 			ctx.SendChain(message.Text("[ERROR]:没有找到图片"))
 			return
 		}
 		ctx.Send("删除成功")
-
 	})
 }
 

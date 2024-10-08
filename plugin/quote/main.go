@@ -1,9 +1,17 @@
+// Package quote 渲染消息
 package quote
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/plugin/rss"
+	"html"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/alexflint/go-arg"
@@ -12,13 +20,8 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"html"
-	"io"
-	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
-	"time"
+
+	"github.com/FloatTech/ZeroBot-Plugin/plugin/rss"
 )
 
 type messageRenderStruct struct {
@@ -26,6 +29,7 @@ type messageRenderStruct struct {
 	Data interface{} `json:"data"`
 }
 
+// RenderMessage 用于渲染的信息结构体
 type RenderMessage struct {
 	Name     string                `json:"name"`
 	Label    string                `json:"label,omitempty"`
@@ -35,7 +39,7 @@ type RenderMessage struct {
 	Messages []messageRenderStruct `json:"messages"`
 }
 
-func getSenderInfo(ctx *zero.Ctx, msg gjson.Result) (name string, role string) {
+func getSenderInfo(msg gjson.Result) (name string, role string) {
 	name = msg.Get("sender.card").String()
 	if name == "" {
 		name = msg.Get("sender.nickname").String()
@@ -45,26 +49,20 @@ func getSenderInfo(ctx *zero.Ctx, msg gjson.Result) (name string, role string) {
 	}
 	return
 }
-func _NewAtEl(ctx *zero.Ctx, minfo gjson.Result) *messageRenderStruct {
-	if minfo.Get("card").String() != "" {
-		return &messageRenderStruct{Type: "at", Data: minfo.Get("card").String()}
-	} else if minfo.Get("nickname").String() != "" {
-		return &messageRenderStruct{Type: "at", Data: minfo.Get("nickname").String()}
-	} else {
-		return &messageRenderStruct{Type: "at", Data: minfo.Get("id")}
-	}
-}
 func newAtEl(minfo gjson.Result) *messageRenderStruct {
-	if minfo.Get("card").String() != "" {
+	switch {
+	case minfo.Get("card").String() != "":
 		return &messageRenderStruct{Type: "at", Data: minfo.Get("card").String()}
-	} else if minfo.Get("nickname").String() != "" {
+	case minfo.Get("nickname").String() != "":
 		return &messageRenderStruct{Type: "at", Data: minfo.Get("nickname").String()}
-	} else {
+	default:
 		return &messageRenderStruct{Type: "at", Data: minfo.Get("id")}
 	}
 }
+
+// ParseMessageChain 将消息链转换为渲染结构
 func ParseMessageChain(ctx *zero.Ctx, chain gjson.Result) *RenderMessage {
-	name, role := getSenderInfo(ctx, chain)
+	name, role := getSenderInfo(chain)
 	el := &RenderMessage{
 		Name:     name,
 		Label:    role,
@@ -86,9 +84,10 @@ func ParseMessageChain(ctx *zero.Ctx, chain gjson.Result) *RenderMessage {
 				id := element.Get("data.qq").Int()
 				minfo := ctx.GetGroupMemberInfo(ctx.Event.GroupID, id, true)
 				el.Messages = append(el.Messages, *newAtEl(minfo))
-			} else if i != 0 && chain.Get("message").Array()[i-1].Get("type").String() == "reply" {
-				// TODO
 			}
+			// else if i != 0 && chain.Get("message").Array()[i-1].Get("type").String() == "reply" {
+			// TODO
+			//}
 		case "text":
 			if len(element.Get("data.text").String()) != 0 {
 				el.Messages = append(el.Messages, messageRenderStruct{Type: "text", Data: element.Get("data.text").String()})
@@ -97,9 +96,9 @@ func ParseMessageChain(ctx *zero.Ctx, chain gjson.Result) *RenderMessage {
 			el.Messages = append(el.Messages, messageRenderStruct{Type: "image", Data: element.Get("data.url").String()})
 		case "forward":
 			forwardMessage := ctx.GetForwardMessage(element.Get("data.id").String()).Get("message")
-			//TODO
-			//forwardMessages := ctx.GetForwardMessage(element.Get("data.id").String()).Get("message").Array()
-			//for _, chain := range forwardMessages {
+			// TODO
+			// forwardMessages := ctx.GetForwardMessage(element.Get("data.id").String()).Get("message").Array()
+			// for _, chain := range forwardMessages {
 			//	for _, segment := range chain.Get("data.content").Array() {
 			//		switch segment.Get("type").String() {
 			//
@@ -126,10 +125,7 @@ func init() {
 		Date       bool `arg:"-d" default:"false" help:"包含时间日期，默认关闭(仅Size为0时生效)"` // 是否使用彩色
 		SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
 	}
-	quoteArgsParser, _ := arg.NewParser(arg.Config{Program: "/q", IgnoreEnv: true}, &quoteArgs)
-	engine.OnFullMatch(zero.BotConfig.CommandPrefix+"q", zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-
-	})
+	quoteArgsParser, _ := arg.NewParser(arg.Config{Program: zero.BotConfig.CommandPrefix + "q", IgnoreEnv: true}, &quoteArgs)
 	engine.OnRegex(`^\[CQ:reply,id=(-?\d+)\].*/q\s*(.*)$`, zero.OnlyGroup).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			err := quoteArgsParser.Parse(shell.Parse(ctx.State["regex_matched"].([]string)[2]))
@@ -147,7 +143,7 @@ func init() {
 				return
 			}
 			msg := ctx.GetMessage(mid)
-			if quoteArgs.Size == 0 { //获取消息
+			if quoteArgs.Size == 0 { // 获取消息
 				var name string
 				if msg.Sender != nil {
 					name = msg.Sender.Name()
@@ -162,7 +158,7 @@ func init() {
 					}).Data
 					date = time.UnixMilli(t.Get("time").Int() * 1000).Format("2006-01-02 15:04:05")
 				}
-				err, bytes := renderQuoteImage(client, name, avatar, content, date, &quoteArgs)
+				bytes, err := renderQuoteImage(client, name, avatar, content, date, &quoteArgs)
 				if err != nil {
 					ctx.SendChain(message.Text(err.Error()))
 					return
@@ -176,18 +172,18 @@ func init() {
 					var i = 0
 					for i < len(hisMessages) {
 						chain := hisMessages[i]
-						//println(chain.String())
-						if replyId := chain.Get("message.0.data.id").Int(); chain.Get("message.0.type").String() == "reply" && replyId != 0 {
+						// println(chain.String())
+						if replyID := chain.Get("message.0.data.id").Int(); chain.Get("message.0.type").String() == "reply" && replyID != 0 {
 							var contains = false
 							for j := i + 1; j < len(hisMessages); j++ {
-								if hisMessages[j].Get("message_id").Int() == replyId {
+								if hisMessages[j].Get("message_id").Int() == replyID {
 									contains = true
 									break
 								}
 							}
 							if !contains {
 								rsp := ctx.CallAction("get_msg", zero.Params{
-									"message_id": replyId,
+									"message_id": replyID,
 								}).Data
 								hisMessages = append(hisMessages, rsp)
 							}
@@ -206,7 +202,7 @@ func init() {
 					ctx.SendChain(message.Text(err.Error()))
 					return
 				}
-				err, bytes := RenderHistoryImage(client, string(marshal), quoteArgs.GrayScale, 87)
+				bytes, err := RenderHistoryImage(client, string(marshal), quoteArgs.GrayScale, 87)
 				if err != nil {
 					ctx.SendChain(message.Text(err.Error()))
 					return
@@ -216,13 +212,14 @@ func init() {
 		})
 }
 
-func RenderHistoryImage(client *http.Client, j string, GrayScale bool, q int) (error, []byte) {
+// RenderHistoryImage 渲染历史消息
+func RenderHistoryImage(client *http.Client, j string, grayScale bool, q int) ([]byte, error) {
 	postData := url.Values{}
 	postData.Set("messages", j)
 	p, _ := url.Parse("http://127.0.0.1:8888/message?dpi=F2X&fullPage&fit-content=true")
 	query := p.Query()
 	query.Set("quality", strconv.Itoa(q))
-	if !GrayScale {
+	if !grayScale {
 		query.Set("color", "true")
 	}
 	p.RawQuery = query.Encode()
@@ -233,18 +230,17 @@ func RenderHistoryImage(client *http.Client, j string, GrayScale bool, q int) (e
 		strings.NewReader(postData.Encode()),
 	)
 	if err != nil {
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("render image error: %s", response.Status), nil
+		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
 	}
 	var imageBytes []byte
 	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
-	return err, imageBytes
+	return imageBytes, err
 }
 
 // BeautifyPlainText 美观输出消息
@@ -259,7 +255,7 @@ func BeautifyPlainText(ctx *zero.Ctx, m message.Message, indent int) string {
 		case "text":
 			sb.WriteString(html.EscapeString(val.Data["text"]))
 		case "image":
-			//sb.WriteString("[图片]")
+			// sb.WriteString("[图片]")
 		case "at":
 			qid, err := strconv.Atoi(val.Data["qq"])
 			if err != nil {
@@ -278,7 +274,7 @@ func BeautifyPlainText(ctx *zero.Ctx, m message.Message, indent int) string {
 			if msg.Sender != nil {
 				sb.WriteString(fmt.Sprintf(`<div class="quote"">%s</div>`, BeautifyPlainText(ctx, msg.Elements, indent+1)))
 				if len(m) > i+1 && msg.Sender != nil && m[i+1].Type == "at" && m[i+1].Data["qq"] == strconv.FormatInt(msg.Sender.ID, 10) {
-					i += 1
+					i++
 				}
 			}
 		}
@@ -291,7 +287,7 @@ func renderQuoteImage(client *http.Client, name string, avatar string, message s
 	GrayScale  bool `arg:"-g" default:"false" help:"灰度滤镜，默认关闭(仅Size为0时生效)"`
 	Date       bool `arg:"-d" default:"false" help:"包含时间日期，默认关闭(仅Size为0时生效)"`
 	SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
-}) (error, []byte) {
+}) ([]byte, error) {
 	postData := url.Values{}
 	postData.Set("userName", name)
 	postData.Set("userAvatar", avatar)
@@ -304,23 +300,22 @@ func renderQuoteImage(client *http.Client, name string, avatar string, message s
 		query.Set("color", "true")
 		p.RawQuery = query.Encode()
 	}
-	//println(p.String())
+	// println(p.String())
 	response, err := client.Post(
 		p.String(),
 		"application/x-www-form-urlencoded",
 		strings.NewReader(postData.Encode()),
 	)
 	if err != nil {
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("render image error: %s", response.Status), nil
+		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
 	}
 	var imageBytes []byte
 	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
-	return err, imageBytes
+	return imageBytes, err
 }

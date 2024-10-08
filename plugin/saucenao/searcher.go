@@ -3,12 +3,13 @@ package saucenao
 
 import (
 	"fmt"
-	"github.com/FloatTech/AnimeAPI/pixiv"
-	"github.com/FloatTech/zbputils/img/pool"
 	"net/http"
 	"os"
 	"reflect"
 	"strconv"
+
+	"github.com/FloatTech/AnimeAPI/pixiv"
+	"github.com/FloatTech/zbputils/img/pool"
 
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -42,7 +43,7 @@ func init() { // 插件主体
 - 设置saucenao api key <你的key> [仅超级用户]
 - ^(开启|打开|启用|关闭|关掉|禁用)搜图显示图片$ [仅超级用户]
 `,
-		//"- 搜图[P站图片ID]"
+		// "- 搜图[P站图片ID]"
 
 		PrivateDataFolder: "saucenao",
 	})
@@ -122,7 +123,7 @@ func init() { // 插件主体
 			pics, ok := ctx.State["image_url"].([]string)
 			showPic := false
 			if !ok {
-				//ctx.SendChain(message.Text("ERROR: 未获取到图片链接"))
+				// ctx.SendChain(message.Text("ERROR: 未获取到图片链接"))
 				return
 			}
 			c, ok := ctx.State["manager"].(*ctrl.Control[*zero.Ctx])

@@ -1,15 +1,13 @@
 package utils
 
 import (
+	"image"
+
 	"github.com/shogo82148/androidbinary"
 	"github.com/shogo82148/androidbinary/apk"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/vector"
-	_ "golang.org/x/image/vp8"
-	_ "golang.org/x/image/webp"
-	"image"
 )
 
+// ParseApk 解析apk
 func ParseApk(file string) (icon *image.Image, pkgName, labelCN string, manifest apk.Manifest, err error) {
 	pkg, err := apk.OpenFile(file)
 	if err != nil {

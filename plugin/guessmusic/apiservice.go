@@ -2,7 +2,6 @@ package guessmusic
 
 import (
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net/url"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	wyy "github.com/FloatTech/AnimeAPI/neteasemusic"
 	"github.com/FloatTech/floatbox/file"
@@ -411,13 +412,13 @@ func downloadlist(playlistID int64, musicPath string) error {
 			// 下载歌曲
 			err := wyy.DownloadMusic(musicID, musicName, musicPath)
 			if err == nil {
-				log.Info("[guessmusic] download %s", musicName)
+				log.Infof("[guessmusic] download %s", musicName)
 				if cfg.Local {
 					// 下载歌词
 					_ = wyy.DownloadLrc(musicID, musicName, musicPath+"歌词/")
 				}
 			} else {
-				log.Warning("[guessmusic] download failed %s", musicName)
+				log.Warningf("[guessmusic] download failed %s", musicName)
 			}
 		}()
 	}

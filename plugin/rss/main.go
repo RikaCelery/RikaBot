@@ -1,9 +1,20 @@
+// Package rss 订阅rss
 package rss
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
+	"io"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/FloatTech/floatbox/process"
 	sql "github.com/FloatTech/sqlite"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -17,28 +28,19 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"html/template"
-	"io"
-	"net/http"
-	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type pushedRss struct {
 	Link       string
-	Gid        int64
-	FeedUrl    string
+	GID        int64
+	FeedURL    string
 	Published  string
 	PushedDate string
 }
 type rssInfo struct {
-	Id         int
-	Gid        int
-	Feed       string //rss feed
+	ID         int
+	GID        int
+	Feed       string // rss feed
 	LastUpdate string
 }
 
@@ -78,32 +80,31 @@ func init() {
 		_, err = db.DB.Exec(`create table if not exists 'group_rss_pushed'
 (
     Link       TEXT    not null,
-    Gid        integer not null,
-    FeedUrl    TEXT    not null,
+    GID        integer not null,
+    FeedURL    TEXT    not null,
     Published  TEXT default '',
     PushedDate date  not null,
     constraint group_rss_pushed_pk
-        primary key (FeedUrl, Gid, Link)
+        primary key (FeedURL, GID, Link)
 );
 create table if not exists 'group_rss_format'
 (
-    Gid        integer not null,
-    FeedUrl    TEXT    not null,
+    GID        integer not null,
+    FeedURL    TEXT    not null,
     RenderType integer not null,
     template   TEXT    null,
     constraint group_rss_pushed_pk
-        primary key (FeedUrl, Gid)
+        primary key (FeedURL, GID)
 );
 `)
 		if err != nil {
 			panic(err)
 		}
-
 	}
 	client := &http.Client{}
 	fp := gofeed.NewParser()
 	var lock = sync.Mutex{}
-	var cronId cron.EntryID
+	var cronID cron.EntryID
 	cronTask := func() {
 		if !lock.TryLock() {
 			return
@@ -115,25 +116,24 @@ create table if not exists 'group_rss_format'
 			return
 		}
 		for _, res := range infos {
-			_ = func() error {
-				logrus.Infof("[rss update cron] id %d, group %d, feed %s\n", res.Id, res.Gid, res.Feed)
+			err = func() error {
+				logrus.Infof("[rss update cron] id %d, group %d, feed %s\n", res.ID, res.GID, res.Feed)
 				feed, err := fp.ParseURL(res.Feed)
 				if err != nil {
-					logrus.Errorf("[rss update cron] update failed,id %d, group %d,  feed %s, err %v", res.Id, res.Gid, res.Feed, err)
-					return nil
+					logrus.Errorf("[rss update cron] update failed,id %d, group %d,  feed %s, err %v", res.ID, res.GID, res.Feed, err)
+					return err
 				}
 				Reverse(feed.Items)
 				for _, item := range feed.Items {
-					if isRssPushed(db, res.Feed, item, int64(res.Gid)) {
+					if isRssPushed(db, res.Feed, item, int64(res.GID)) {
 						continue
 					}
 					logrus.Infof("updated %v %v", item.Title, item.Link)
-					zero.RangeBot(func(id int64, ctx *zero.Ctx) bool {
+					zero.RangeBot(func(_ int64, ctx *zero.Ctx) bool {
 						groups := ctx.GetGroupList().Array()
 						for _, group := range groups {
-							if group.Get("group_id").Int() == int64(res.Gid) {
-
-								err, _ := sendRssMessage(db, item, client, feed, ctx, res)
+							if group.Get("group_id").Int() == int64(res.GID) {
+								_, err = sendRssMessage(db, item, client, feed, ctx, res)
 								res.LastUpdate = item.Published
 								err = setRssPushed(db, item, res)
 								if err != nil {
@@ -153,6 +153,9 @@ create table if not exists 'group_rss_format'
 				}
 				return nil
 			}()
+			if err != nil {
+				logrus.Errorf("rss cron task error %v", err)
+			}
 		}
 		logrus.Infoln("rss cron task done")
 	}
@@ -163,11 +166,11 @@ create table if not exists 'group_rss_format'
 		if err != nil {
 			return
 		}
-		cronId = addFunc
+		cronID = addFunc
 		process.GlobalInitMutex.Unlock()
 	}()
 	engine.OnFullMatch("rss run", zero.AdminPermission).
-		SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		SetBlock(true).Handle(func(_ *zero.Ctx) {
 		cronTask()
 	})
 
@@ -178,8 +181,8 @@ create table if not exists 'group_rss_format'
 			ctx.Send(fmt.Sprintf("[ERROR]: %v", err))
 			return
 		}
-		process.CronTab.Remove(cronId)
-		cronId = addFunc
+		process.CronTab.Remove(cronID)
+		cronID = addFunc
 	})
 
 	var argRssAdd struct {
@@ -189,7 +192,6 @@ create table if not exists 'group_rss_format'
 	argRssAddParser, _ := arg.NewParser(arg.Config{Program: "rss a", IgnoreEnv: true}, &argRssAdd)
 	engine.OnRegex("rss +a +(.+)", zero.OnlyGroup, zero.AdminPermission).
 		SetBlock(true).Handle(func(ctx *zero.Ctx) {
-
 		err := argRssAddParser.Parse(shell.Parse(ctx.State["regex_matched"].([]string)[1]))
 		if err != nil {
 			var buf = &strings.Builder{}
@@ -205,23 +207,22 @@ create table if not exists 'group_rss_format'
 		}
 		res, err := findRss(ctx, db, link)
 		if err == nil {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("已存在该rss源,ID:%d", res.Id)))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("已存在该rss源,ID:%d", res.ID)))
 			return
-		} else {
-			count, err := db.Count("group_rss")
-			if err == nil && count != 0 {
-				logrus.Warnf("rss a %v", err)
-				err := db.Query("select * from group_rss order by id", res)
-				res.Id += 1
-				if err != nil {
-					logrus.Warnf("rss query error %v", err)
-					return
-				}
-			}
-			res.Feed = link
-			res.Gid = int(ctx.Event.GroupID)
-			res.LastUpdate = time.UnixMicro(1000).Format(time.RFC1123Z)
 		}
+		count, err := db.Count("group_rss")
+		if err == nil && count != 0 {
+			logrus.Warnf("rss a %v", err)
+			err := db.Query("select * from group_rss order by id", res)
+			res.ID++
+			if err != nil {
+				logrus.Warnf("rss query error %v", err)
+				return
+			}
+		}
+		res.Feed = link
+		res.GID = int(ctx.Event.GroupID)
+		res.LastUpdate = time.UnixMicro(1000).Format(time.RFC1123Z)
 		// pre check
 		logrus.Infof("loading rss %s\n", link)
 		feed, err := fp.ParseURL(link)
@@ -237,7 +238,7 @@ create table if not exists 'group_rss_format'
 		}
 		if argRssAdd.IgnoreBefore {
 			for _, item := range feed.Items {
-				if isRssPushed(db, res.Feed, item, int64(res.Gid)) {
+				if isRssPushed(db, res.Feed, item, int64(res.GID)) {
 					continue
 				}
 				err := setRssPushed(db, item, res)
@@ -248,7 +249,6 @@ create table if not exists 'group_rss_format'
 			}
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("RSS源添加成功，将在下一次更新时推送内容"))
-
 	})
 
 	var argRssTest struct {
@@ -273,10 +273,10 @@ create table if not exists 'group_rss_format'
 		}
 		var res = rssInfo{
 			Feed:       argRssTest.URL,
-			Gid:        int(ctx.Event.GroupID),
+			GID:        int(ctx.Event.GroupID),
 			LastUpdate: time.UnixMicro(1000).Format(time.RFC1123Z),
 		}
-		err, _ = sendRssMessageFormat(db, feed.Items[0], client, feed, ctx, &res, argRssTest.Format)
+		_, err = sendRssMessageFormat(db, feed.Items[0], client, feed, ctx, &res, argRssTest.Format)
 		if err != nil {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("[ERROR]: %v", err)))
 			return
@@ -285,8 +285,8 @@ create table if not exists 'group_rss_format'
 
 	engine.OnRegex("rss +format +(\\d+) +(\\d)", zero.OnlyGroup, zero.AdminPermission).
 		SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		rssId, _ := strconv.Atoi(ctx.State["regex_matched"].([]string)[1])
-		rssinfo, err := findRssById(ctx, db, rssId)
+		rssID, _ := strconv.Atoi(ctx.State["regex_matched"].([]string)[1])
+		rssinfo, err := findRssByID(ctx, db, rssID)
 		if err != nil {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("未找到该RSS源"))
 			return
@@ -330,15 +330,14 @@ create table if not exists 'group_rss_format'
 			return
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("RSS格式设置成功，将在下一次推送时生效"))
-
 	})
 
 	engine.OnFullMatchGroup([]string{"rss ls", "rss list"}, zero.OnlyGroup, zero.AdminPermission).
 		SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		var msg = ""
 		var res = &rssInfo{}
-		err := db.FindFor("group_rss", res, fmt.Sprintf("where Gid = %d", ctx.Event.GroupID), func() error {
-			msg += fmt.Sprintf("ID: %d, Url: %s, 最近更新时间: %s\n", res.Id, res.Feed, res.LastUpdate)
+		err := db.FindFor("group_rss", res, fmt.Sprintf("where GID = %d", ctx.Event.GroupID), func() error {
+			msg += fmt.Sprintf("ID: %d, URL: %s, 最近更新时间: %s\n", res.ID, res.Feed, res.LastUpdate)
 			return nil
 		})
 		if err != nil {
@@ -353,7 +352,6 @@ create table if not exists 'group_rss_format'
 
 	engine.OnPrefix("rss rm", zero.OnlyGroup, zero.AdminPermission).
 		SetBlock(true).Handle(func(ctx *zero.Ctx) {
-
 		idStr := strings.Replace(ctx.Event.Message.String(), "rss rm", "", 1)
 		idStr = strings.Trim(idStr, " ")
 		id, err := strconv.Atoi(idStr)
@@ -364,17 +362,19 @@ create table if not exists 'group_rss_format'
 		if err := delRss(db, ctx.Event.GroupID, id); err != nil {
 			ctx.SendChain(message.Text("ERROR:", err))
 			return
-		} else {
-			ctx.SendChain(message.Text("删除成功"))
 		}
+		ctx.SendChain(message.Text("删除成功"))
 	})
-
 }
+
+// Reverse 反转slice
 func Reverse[S ~[]E, E any](s S) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
 }
+
+// Contains 判断slice中是否包含某元素
 func Contains(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -383,34 +383,33 @@ func Contains(s []string, e string) bool {
 	}
 	return false
 }
-func getTemplate(db *sql.Sqlite, gid int64, feedUrl string) (error, string) {
+func getTemplate(db *sql.Sqlite, gid int64, feedURL string) (string, error) {
 	var t string
-	if db.CanQuery(fmt.Sprintf("select template from group_rss_format where Gid = %d and FeedUrl = '%s'", gid, feedUrl)) {
-		row := db.DB.QueryRow(fmt.Sprintf("select template from group_rss_format where Gid = %d and FeedUrl = '%s'", gid, feedUrl))
+	if db.CanQuery(fmt.Sprintf("select template from group_rss_format where GID = %d and FeedURL = '%s'", gid, feedURL)) {
+		row := db.DB.QueryRow(fmt.Sprintf("select template from group_rss_format where GID = %d and FeedURL = '%s'", gid, feedURL))
 		err := row.Scan(&t)
 		if err != nil {
-			return err, ""
+			return "", err
 		}
-		return nil, t
+		return t, nil
 	}
-	return errors.New("未找到模板"), ""
+	return "", errors.New("未找到模板")
 }
-func getRssRenderType(db *sql.Sqlite, gid int64, feedUrl string) int {
+func getRssRenderType(db *sql.Sqlite, gid int64, feedURL string) int {
 	var t = -1
-	if db.CanQuery(fmt.Sprintf("select RenderType from group_rss_format where Gid = %d and FeedUrl = '%s';", gid, feedUrl)) {
-		row := db.DB.QueryRow(fmt.Sprintf("select RenderType from group_rss_format where Gid = %d and FeedUrl = '%s';", gid, feedUrl))
+	if db.CanQuery(fmt.Sprintf("select RenderType from group_rss_format where GID = %d and FeedURL = '%s';", gid, feedURL)) {
+		row := db.DB.QueryRow(fmt.Sprintf("select RenderType from group_rss_format where GID = %d and FeedURL = '%s';", gid, feedURL))
 		err := row.Scan(&t)
 		if err != nil {
 			return -1
 		}
 		return t
-	} else {
-		return 1
 	}
+	return 1
 }
 
-func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedUrl string, tmpl string) error {
-	_, err := db.DB.Exec("delete from group_rss_format where Gid=? and FeedUrl=?", gid, feedUrl)
+func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedURL string, tmpl string) error {
+	_, err := db.DB.Exec("delete from group_rss_format where GID=? and FeedURL=?", gid, feedURL)
 	if err != nil {
 		return err
 	}
@@ -419,29 +418,29 @@ func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedUrl string, tmpl str
 		if tmpl == "" {
 			return errors.New("模板不能为空")
 		}
-		_, err := db.DB.Exec("insert into group_rss_format(Gid, FeedUrl, RenderType,template) values(?, ?, ?,?);", gid, feedUrl, t, tmpl)
+		_, err := db.DB.Exec("insert into group_rss_format(GID, FeedURL, RenderType,template) values(?, ?, ?,?);", gid, feedURL, t, tmpl)
 		return err
 	}
-	_, err = db.DB.Exec("insert into group_rss_format(Gid, FeedUrl, RenderType) values(?, ?, ?);", gid, feedUrl, t)
+	_, err = db.DB.Exec("insert into group_rss_format(GID, FeedURL, RenderType) values(?, ?, ?);", gid, feedURL, t)
 	return err
 }
 
-func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (error, int64) {
-	err, msg := renderRssToMessage(db, t, item, feed, res, client)
-	mid := ctx.SendGroupMessage(int64(res.Gid), msg)
-	return err, mid
+func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (int64, error) {
+	msg, err := renderRssToMessage(db, t, item, feed, res, client)
+	mid := ctx.SendGroupMessage(int64(res.GID), msg)
+	return mid, err
 }
-func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (error, int64) {
-	var t = getRssRenderType(db, int64(res.Gid), res.Feed)
-	err, msg := renderRssToMessage(db, t, item, feed, res, client)
-	mid := ctx.SendGroupMessage(int64(res.Gid), msg)
-	return err, mid
+func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (int64, error) {
+	var t = getRssRenderType(db, int64(res.GID), res.Feed)
+	msg, err := renderRssToMessage(db, t, item, feed, res, client)
+	mid := ctx.SendGroupMessage(int64(res.GID), msg)
+	return mid, err
 }
 
-func truncate(title string, max int) string {
-	return runewidth.Truncate(title, max, "...")
+func truncate(title string, maxlen int) string {
+	return runewidth.Truncate(title, maxlen, "...")
 }
-func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (error, string) {
+func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (string, error) {
 	funcs := template.FuncMap{
 		"truncate": truncate,
 		"extractImages": func(in *gofeed.Item) {
@@ -458,16 +457,16 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 				if !strings.HasPrefix(enclosure.Type, "image") {
 					continue
 				}
-				cqUrl := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
-				if !Contains(imgs, cqUrl) {
-					imgs = append(imgs, cqUrl)
+				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
+				if !Contains(imgs, cqURL) {
+					imgs = append(imgs, cqURL)
 				}
 			}
-			reader.Find("img").Each(func(i int, selection *goquery.Selection) {
+			reader.Find("img").Each(func(_ int, selection *goquery.Selection) {
 				src := selection.AttrOr("src", "")
-				cqUrl := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
-				if !Contains(imgs, cqUrl) {
-					imgs = append(imgs, cqUrl)
+				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
+				if !Contains(imgs, cqURL) {
+					imgs = append(imgs, cqURL)
 				}
 			})
 		},
@@ -497,7 +496,7 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 				panic(err)
 			}
 			find := reader.Find(selector)
-			//println(in, selector, find)
+			// println(in, selector, find)
 			return find
 		},
 		"selContent": func(in *goquery.Selection) template.HTML {
@@ -506,31 +505,19 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 		"docContent": func(in *goquery.Document) template.HTML {
 			return template.HTML(strings.Trim(in.Text(), " \n\r"))
 		},
-		"startWith": func(in string, str string) bool {
-			return strings.HasPrefix(in, str)
+		"startWith": strings.HasPrefix,
+		"endWith":   strings.HasSuffix,
+		"isnil": func(obj interface{}) bool {
+			return obj == nil
 		},
-		"endWith": func(in string, str string) bool {
-			return strings.HasSuffix(in, str)
-		},
-		"isnil": func(any interface{}) bool {
-			if any == nil {
-				return true
-			} else {
-				return false
-			}
-		},
-		"notnil": func(any interface{}) bool {
-			if any != nil {
-				return true
-			} else {
-				return false
-			}
+		"notnil": func(obj interface{}) bool {
+			return obj != nil
 		},
 	}
 
 	tmpl, err := template.New("rss_text_template").Funcs(funcs).Parse(_template)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 	var buf = &strings.Builder{}
 	err = tmpl.Execute(buf, struct {
@@ -541,9 +528,9 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 		Feed: feed,
 	})
 	if err != nil {
-		return err, ""
+		return "", err
 	}
-	return nil, buf.String()
+	return buf.String(), nil
 }
 
 // 1: 默认，渲染html截图
@@ -551,7 +538,7 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (err
 // 3: 推送标题、链接和图片
 // 4: 推送标题、链接和图片和内容
 // 5: 自定义消息模板
-func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (error, interface{}) {
+func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (interface{}, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			marshal, _ := json.MarshalIndent(item, "", "  ")
@@ -566,18 +553,18 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 	}
 	switch renderType {
 	case 1:
-		err, imageBytes := renderRssImage(item, client)
+		imageBytes, err := renderRssImage(item, client)
 		if err != nil {
 			logrus.Errorln(err)
-			return err, nil
+			return nil, err
 		}
 		logrus.Infoln("render image success")
 
-		return nil, []message.MessageSegment{
+		return []message.MessageSegment{
 			message.ImageBytes(imageBytes), message.Text(strings.Trim(fmt.Sprintf("#%s\n%s\n%s", feed.Title, item.Link, strings.Join(item.Categories, ", ")), " \n\r")),
-		}
+		}, nil
 	case 2:
-		return nil, []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
+		return []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}, nil
 	case 3:
 		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
 		var links = []string{}
@@ -591,7 +578,7 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 				links = append(links, enclosure.URL)
 			}
 		}
-		return nil, msgs
+		return msgs, nil
 
 	case 4:
 		desc := ""
@@ -613,28 +600,28 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 				links = append(links, enclosure.URL)
 			}
 		}
-		return nil, msgs
+		return msgs, nil
 	case 5:
-		err, s := getTemplate(db, int64(res.Gid), res.Feed)
+		s, err := getTemplate(db, int64(res.GID), res.Feed)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
-		err, msg := templateRender(s, item, feed)
+		msg, err := templateRender(s, item, feed)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
-		return nil, message.UnescapeCQCodeText(msg)
+		return message.UnescapeCQCodeText(msg), nil
 	default:
 	}
-	return errors.New("unknown render type"), nil
+	return nil, errors.New("unknown render type")
 }
 func findRss(ctx *zero.Ctx, db *sql.Sqlite, link string) (*rssInfo, error) {
 	var res = &rssInfo{}
-	return res, db.Find("group_rss", res, fmt.Sprintf("where Feed like '%s' and Gid = %d", link, ctx.Event.GroupID))
+	return res, db.Find("group_rss", res, fmt.Sprintf("where Feed like '%s' and GID = %d", link, ctx.Event.GroupID))
 }
-func findRssById(ctx *zero.Ctx, db *sql.Sqlite, id int) (*rssInfo, error) {
+func findRssByID(ctx *zero.Ctx, db *sql.Sqlite, id int) (*rssInfo, error) {
 	var res = &rssInfo{}
-	return res, db.Find("group_rss", res, fmt.Sprintf("where Id = %d and Gid = %d", id, ctx.Event.GroupID))
+	return res, db.Find("group_rss", res, fmt.Sprintf("where ID = %d and GID = %d", id, ctx.Event.GroupID))
 }
 
 func insertOrUpdateRssInfo(db *sql.Sqlite, res *rssInfo) error {
@@ -644,14 +631,14 @@ func insertOrUpdateRssInfo(db *sql.Sqlite, res *rssInfo) error {
 func setRssPushed(db *sql.Sqlite, item *gofeed.Item, res *rssInfo) error {
 	err := db.Insert("group_rss_pushed", &pushedRss{
 		Link:      item.Link,
-		Gid:       int64(res.Gid),
-		FeedUrl:   res.Feed,
+		GID:       int64(res.GID),
+		FeedURL:   res.Feed,
 		Published: item.Published,
 	})
 	return err
 }
 
-func renderRssImage(item *gofeed.Item, client *http.Client) (error, []byte) {
+func renderRssImage(item *gofeed.Item, client *http.Client) ([]byte, error) {
 	postData := url.Values{}
 	parsed, _ := url.Parse(item.Link)
 	postData.Set("title", item.Title)
@@ -678,33 +665,31 @@ func renderRssImage(item *gofeed.Item, client *http.Client) (error, []byte) {
 		strings.NewReader(postData.Encode()),
 	)
 	if err != nil {
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("render image error: %s", response.Status), nil
+		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
 	}
 	var imageBytes []byte
 	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-
-		return fmt.Errorf("render image error: %v", err), nil
+		return nil, err
 	}
-	return err, imageBytes
+	return imageBytes, err
 }
-func isRssPushed(db *sql.Sqlite, feedUrl string, item *gofeed.Item, gid int64) bool {
-	return db.CanFind("group_rss_pushed", "where Link= ? and gid= ? and FeedUrl= ? and Published = ?", item.Link, gid, feedUrl, item.Published)
+func isRssPushed(db *sql.Sqlite, feedURL string, item *gofeed.Item, gid int64) bool {
+	return db.CanFind("group_rss_pushed", "where Link= ? and gid= ? and FeedURL= ? and Published = ?", item.Link, gid, feedURL, item.Published)
 }
-func delRss(db *sql.Sqlite, gid int64, rssId int) error {
+func delRss(db *sql.Sqlite, gid int64, rssID int) error {
 	var res = &rssInfo{}
-	err := db.Find("group_rss", res, fmt.Sprintf("where Id = %d and Gid = %d", rssId, gid))
+	err := db.Find("group_rss", res, fmt.Sprintf("where ID = %d and GID = %d", rssID, gid))
 	if err != nil {
 		return err
 	}
 	logrus.Infof("rss found %v", res)
-	err = db.Del("group_rss", fmt.Sprintf("where Id = %d and Gid = %d", rssId, gid))
+	err = db.Del("group_rss", fmt.Sprintf("where ID = %d and GID = %d", rssID, gid))
 	if err != nil {
 		return err
-
 	}
 
 	return nil
