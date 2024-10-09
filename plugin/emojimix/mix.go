@@ -109,24 +109,33 @@ func match(ctx *zero.Ctx) bool {
 		ctx.Event.Message[0].Data["text"] = strings.TrimSpace(ctx.Event.Message[0].Data["text"][1:])
 	} else {
 		ctx.State["emojimix_command"] = false
-		// return false
 	}
-	emojis := extractEmoji(ctx.Event.Message)
-	logrus.Debugln("[emojimix] emojis:", emojis)
-	if len(emojis) > 2 || len(emojis) == 0 {
+	msgEmojis := extractEmoji(ctx.Event.Message)
+	for _, emoji := range msgEmojis {
+		slug, _ := emojiToHashSlug(emoji)
+		_, ok := emojis[slug]
+		if !ok {
+			if ctx.State["emojimix_command"].(bool) {
+				ctx.Send(fmt.Sprintf("不支持混合%s", emoji))
+			}
+			return false
+		}
+	}
+	logrus.Debugln("[emojimix] emojis:", msgEmojis)
+	if len(msgEmojis) > 2 || len(msgEmojis) == 0 {
 		return false
 	}
-	if len(emojis) == 1 {
-		ctx.State["emojimix"] = emojis
+	if len(msgEmojis) == 1 {
+		ctx.State["emojimix"] = msgEmojis
 		return true
 	}
 
-	sort.Strings(emojis)
-	n := sortutil.Dedupe(sort.StringSlice(emojis))
+	sort.Strings(msgEmojis)
+	n := sortutil.Dedupe(sort.StringSlice(msgEmojis))
 	if n == 1 {
 		n = 2
 	}
-	ctx.State["emojimix"] = emojis[:n]
+	ctx.State["emojimix"] = msgEmojis[:n]
 	return true
 }
 
