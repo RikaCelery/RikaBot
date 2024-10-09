@@ -2,11 +2,10 @@
 package rss
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 	"html/template"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -22,7 +21,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/alexflint/go-arg"
 	"github.com/fumiama/cron"
-	"github.com/mattn/go-runewidth"
 	"github.com/mmcdole/gofeed"
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -123,7 +121,7 @@ create table if not exists 'group_rss_format'
 					logrus.Errorf("[rss update cron] update failed,id %d, group %d,  feed %s, err %v", res.ID, res.GID, res.Feed, err)
 					return err
 				}
-				Reverse(feed.Items)
+				utils.Reverse(feed.Items)
 				for _, item := range feed.Items {
 					if isRssPushed(db, res.Feed, item, int64(res.GID)) {
 						continue
@@ -367,22 +365,6 @@ create table if not exists 'group_rss_format'
 	})
 }
 
-// Reverse 反转slice
-func Reverse[S ~[]E, E any](s S) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-}
-
-// Contains 判断slice中是否包含某元素
-func Contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
 func getTemplate(db *sql.Sqlite, gid int64, feedURL string) (string, error) {
 	var t string
 	if db.CanQuery(fmt.Sprintf("select template from group_rss_format where GID = %d and FeedURL = '%s'", gid, feedURL)) {
@@ -437,12 +419,9 @@ func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed
 	return mid, err
 }
 
-func truncate(title string, maxlen int) string {
-	return runewidth.Truncate(title, maxlen, "...")
-}
 func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (string, error) {
 	funcs := template.FuncMap{
-		"truncate": truncate,
+		"truncate": utils.Truncate,
 		"extractImages": func(in *gofeed.Item) {
 			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in.Description))
 			if err != nil {
@@ -458,14 +437,14 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (str
 					continue
 				}
 				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
-				if !Contains(imgs, cqURL) {
+				if !utils.Contains(imgs, cqURL) {
 					imgs = append(imgs, cqURL)
 				}
 			}
 			reader.Find("img").Each(func(_ int, selection *goquery.Selection) {
 				src := selection.AttrOr("src", "")
 				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
-				if !Contains(imgs, cqURL) {
+				if !utils.Contains(imgs, cqURL) {
 					imgs = append(imgs, cqURL)
 				}
 			})
@@ -540,20 +519,20 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (str
 // 5: 自定义消息模板
 func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (interface{}, error) {
 	defer func() {
-		if err := recover(); err != nil {
-			marshal, _ := json.MarshalIndent(item, "", "  ")
-			fmt.Printf("%v", string(marshal))
-			fmt.Printf("%v", res)
-			fmt.Printf("%v", renderType)
-			logrus.Errorf("renderRssToMessage panic: %v", err)
-		}
+		//if err := recover(); err != nil {
+		//	marshal, _ := json.MarshalIndent(item, "", "  ")
+		//	fmt.Printf("%v", string(marshal))
+		//	fmt.Printf("%v", res)
+		//	fmt.Printf("%v", renderType)
+		//	logrus.Errorf("renderRssToMessage panic: %v", err)
+		//}
 	}()
 	for i := range item.Categories {
 		item.Categories[i] = "#" + item.Categories[i]
 	}
 	switch renderType {
 	case 1:
-		imageBytes, err := renderRssImage(item, client)
+		imageBytes, err := renderRssImage(item, feed)
 		if err != nil {
 			logrus.Errorln(err)
 			return nil, err
@@ -564,16 +543,16 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 			message.ImageBytes(imageBytes), message.Text(strings.Trim(fmt.Sprintf("#%s\n%s\n%s", feed.Title, item.Link, strings.Join(item.Categories, ", ")), " \n\r")),
 		}, nil
 	case 2:
-		return []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}, nil
+		return []message.MessageSegment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}, nil
 	case 3:
-		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
+		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
 		var links = []string{}
 		if item.Image != nil {
 			msgs = append(msgs, message.Image(item.Image.URL))
 			links = append(links, item.Image.URL)
 		}
 		for _, enclosure := range item.Enclosures {
-			if strings.HasPrefix(enclosure.Type, "image/") && !Contains(links, enclosure.URL) {
+			if strings.HasPrefix(enclosure.Type, "image/") && !utils.Contains(links, enclosure.URL) {
 				msgs = append(msgs, message.Image(enclosure.URL))
 				links = append(links, enclosure.URL)
 			}
@@ -595,7 +574,7 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 			links = append(links, item.Image.URL)
 		}
 		for _, enclosure := range item.Enclosures {
-			if strings.HasPrefix(enclosure.Type, "image/") && !Contains(links, enclosure.URL) {
+			if strings.HasPrefix(enclosure.Type, "image/") && !utils.Contains(links, enclosure.URL) {
 				msgs = append(msgs, message.Image(enclosure.URL))
 				links = append(links, enclosure.URL)
 			}
@@ -638,16 +617,31 @@ func setRssPushed(db *sql.Sqlite, item *gofeed.Item, res *rssInfo) error {
 	return err
 }
 
-func renderRssImage(item *gofeed.Item, client *http.Client) ([]byte, error) {
-	postData := url.Values{}
+type renderInfo struct {
+	Title     string
+	FeedTitle string
+	Favicon   string
+	Content   template.HTML
+	Date      string
+	Author    string
+}
+
+func renderRssImage(item *gofeed.Item, feed *gofeed.Feed) ([]byte, error) {
+	postData := &renderInfo{}
 	parsed, _ := url.Parse(item.Link)
-	postData.Set("title", item.Title)
-	postData.Set("favicon", fmt.Sprintf("https://icons.feedercdn.com/%s", parsed.Host))
-	postData.Set("content", item.Description)
+	t, err := template.New("rss.gohtml").ParseGlob("template/*")
+	if err != nil {
+		return nil, err
+	}
+	content := &strings.Builder{}
+	postData.Title = item.Title
+	postData.FeedTitle = feed.Title
+	postData.Favicon = fmt.Sprintf("https://icons.feedercdn.com/%s", parsed.Host)
+	postData.Content = template.HTML(item.Description)
 	if item.PublishedParsed != nil {
-		postData.Set("date", item.PublishedParsed.Format("2006-01-02 15:04:05"))
+		postData.Date = item.PublishedParsed.Format("2006-01-02 15:04:05")
 	} else {
-		postData.Set("date", item.Published)
+		postData.Date = item.Published
 	}
 	var author string
 	if len(item.Authors) > 0 {
@@ -657,25 +651,13 @@ func renderRssImage(item *gofeed.Item, client *http.Client) ([]byte, error) {
 	} else if item.Author != nil {
 		author = item.Author.Name
 	}
-	postData.Set("author", author)
+	postData.Author = author
 	logrus.Infof("rendering %v, %s", item.Title, item.Link)
-	response, err := client.Post(
-		"http://159.75.127.83:8888/rss?dpi=F1_5X&scale=DEVICE&w=500&fullPage&quality=60",
-		"application/x-www-form-urlencoded",
-		strings.NewReader(postData.Encode()),
-	)
+	err = t.Execute(content, postData)
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
-	}
-	var imageBytes []byte
-	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-		return nil, err
-	}
-	return imageBytes, err
+	return utils.ScreenShotPageContent(content.String())
 }
 func isRssPushed(db *sql.Sqlite, feedURL string, item *gofeed.Item, gid int64) bool {
 	return db.CanFind("group_rss_pushed", "where Link= ? and gid= ? and FeedURL= ? and Published = ?", item.Link, gid, feedURL, item.Published)

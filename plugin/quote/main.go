@@ -4,10 +4,9 @@ package quote
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
+	"github.com/playwright-community/playwright-go"
 	"html"
-	"io"
-	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -20,8 +19,6 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"github.com/wdvxdr1123/ZeroBot/message"
-
-	"github.com/FloatTech/ZeroBot-Plugin/plugin/rss"
 )
 
 type messageRenderStruct struct {
@@ -118,7 +115,6 @@ func init() {
 		Brief:            "记录群友丢人时刻（",
 		Help:             `- 回复消息的同时/q  ->渲染一张带有被回复人和话的大照片`,
 	})
-	client := &http.Client{}
 	var quoteArgs struct {
 		Size       int  `arg:"positional" default:"0" help:"不为零时渲染为历史消息记录"`
 		GrayScale  bool `arg:"-g" default:"false" help:"灰度滤镜，默认关闭(仅Size为0时生效)"`   // 是否使用彩色
@@ -158,7 +154,7 @@ func init() {
 					}).Data
 					date = time.UnixMilli(t.Get("time").Int() * 1000).Format("2006-01-02 15:04:05")
 				}
-				bytes, err := renderQuoteImage(client, name, avatar, content, date, &quoteArgs)
+				bytes, err := renderQuoteImage(name, avatar, content, date, &quoteArgs)
 				if err != nil {
 					ctx.SendChain(message.Text(err.Error()))
 					return
@@ -167,7 +163,7 @@ func init() {
 			} else {
 				hisMessages := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid)).Get("messages").Array()
 				hisMessages = hisMessages[len(hisMessages)-quoteArgs.Size:]
-				rss.Reverse(hisMessages)
+				utils.Reverse(hisMessages)
 				if len(hisMessages) > 0 {
 					var i = 0
 					for i < len(hisMessages) {
@@ -191,7 +187,7 @@ func init() {
 						i++
 					}
 				}
-				rss.Reverse(hisMessages)
+				utils.Reverse(hisMessages)
 				var body []*RenderMessage
 				for _, chain := range hisMessages {
 					el := ParseMessageChain(ctx, chain)
@@ -202,7 +198,7 @@ func init() {
 					ctx.SendChain(message.Text(err.Error()))
 					return
 				}
-				bytes, err := RenderHistoryImage(client, string(marshal), quoteArgs.GrayScale, 87)
+				bytes, err := RenderHistoryImage(string(marshal), quoteArgs.GrayScale, 87)
 				if err != nil {
 					ctx.SendChain(message.Text(err.Error()))
 					return
@@ -213,34 +209,24 @@ func init() {
 }
 
 // RenderHistoryImage 渲染历史消息
-func RenderHistoryImage(client *http.Client, j string, grayScale bool, q int) ([]byte, error) {
-	postData := url.Values{}
-	postData.Set("messages", j)
-	p, _ := url.Parse("http://127.0.0.1:8888/message?dpi=F2X&fullPage&fit-content=true")
-	query := p.Query()
-	query.Set("quality", strconv.Itoa(q))
-	if !grayScale {
-		query.Set("color", "true")
+func RenderHistoryImage(j string, grayScale bool, q int) ([]byte, error) {
+	v := `body{padding: 0;margin: 0;`
+	if grayScale {
+		v += "filter: grayscale(1);"
 	}
-	p.RawQuery = query.Encode()
-	logrus.Debugf("[%s] rendering %s", "quote", p.String())
-	response, err := client.Post(
-		p.String(),
-		"application/x-www-form-urlencoded",
-		strings.NewReader(postData.Encode()),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
-	}
-	var imageBytes []byte
-	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-		return nil, err
-	}
-	return imageBytes, err
+	v += "}"
+	return utils.ScreenShotElementTemplate("message.gohtml", ".wrapper", j, utils.ScreenShotElementOption{
+		Width: 400,
+		DPI:   2,
+		PwOption: playwright.ElementHandleScreenshotOptions{
+			Type:       playwright.ScreenshotTypeJpeg,
+			Quality:    playwright.Int(q),
+			Timeout:    playwright.Float(2_000),
+			Animations: playwright.ScreenshotAnimationsDisabled,
+			Scale:      playwright.ScreenshotScaleDevice,
+			Style:      playwright.String(v),
+		},
+	})
 }
 
 // BeautifyPlainText 美观输出消息
@@ -253,7 +239,10 @@ func BeautifyPlainText(ctx *zero.Ctx, m message.Message, indent int) string {
 		val := m[i]
 		switch val.Type {
 		case "text":
-			sb.WriteString(html.EscapeString(val.Data["text"]))
+			s := html.EscapeString(val.Data["text"])
+			s = strings.ReplaceAll(s, "\n", "<br/>")
+			s = strings.ReplaceAll(s, " ", "&nbsp;")
+			sb.WriteString(s)
 		case "image":
 			// sb.WriteString("[图片]")
 		case "at":
@@ -282,40 +271,40 @@ func BeautifyPlainText(ctx *zero.Ctx, m message.Message, indent int) string {
 	return fmt.Sprintf(`<div class="qmsg">%s</div>`, sb.String())
 }
 
-func renderQuoteImage(client *http.Client, name string, avatar string, message string, date string, arg *struct {
+func renderQuoteImage(name string, avatar string, message string, date string, arg *struct {
 	Size       int  `arg:"positional" default:"0" help:"不为零时渲染为历史消息记录"`
 	GrayScale  bool `arg:"-g" default:"false" help:"灰度滤镜，默认关闭(仅Size为0时生效)"`
 	Date       bool `arg:"-d" default:"false" help:"包含时间日期，默认关闭(仅Size为0时生效)"`
 	SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
 }) ([]byte, error) {
-	postData := url.Values{}
-	postData.Set("userName", name)
-	postData.Set("userAvatar", avatar)
-	postData.Set("message", message)
-	postData.Set("date", date)
 	logrus.Infof("rendering %v, %s", name, message)
-	p, _ := url.Parse("http://127.0.0.1:8888/quote?dpi=F1_5X&scale=DEVICE&w=400&fullPage&quality=90")
-	if !arg.GrayScale {
-		query := p.Query()
-		query.Set("color", "true")
-		p.RawQuery = query.Encode()
+
+	v := `body{padding: 0;margin: 0;`
+	if arg.GrayScale {
+		v += "filter: grayscale(1);"
 	}
-	// println(p.String())
-	response, err := client.Post(
-		p.String(),
-		"application/x-www-form-urlencoded",
-		strings.NewReader(postData.Encode()),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("render image error: %s", response.Status) //nolint:forbidigo
-	}
-	var imageBytes []byte
-	if imageBytes, err = io.ReadAll(response.Body); err != nil {
-		return nil, err
-	}
-	return imageBytes, err
+	v += "}"
+	return utils.ScreenShotPageTemplate("quote.gohtml", struct {
+		Avatar   string
+		Message  string
+		UserName string
+		Date     string
+	}{
+		Avatar:   avatar,
+		Message:  message,
+		UserName: name,
+		Date:     date,
+	}, utils.ScreenShotPageOption{
+		Width:  1280,
+		Height: 640,
+		PwOption: playwright.PageScreenshotOptions{
+			FullPage:   playwright.Bool(true),
+			Type:       playwright.ScreenshotTypeJpeg,
+			Quality:    playwright.Int(80),
+			Timeout:    playwright.Float(2_000),
+			Animations: playwright.ScreenshotAnimationsDisabled,
+			Scale:      playwright.ScreenshotScaleDevice,
+			Style:      playwright.String(v),
+		},
+	})
 }
