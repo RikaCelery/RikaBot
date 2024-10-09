@@ -336,7 +336,11 @@ func init() {
 		ctx.SendChain(message.At(uid),
 			message.Text("注册成功,你的牛牛现在有", u.Length, "cm"))
 	})
-	en.OnRegex(`^(?:.*使用(.*))??jj\s?(\[CQ:at,(?:\S*,)?qq=(\d+)(?:,\S*)?\]|(\d+))$`, getdb,
+	en.OnPattern(
+		[]zero.PatternSegment{
+			zero.PatternText(".*(?:使用(.*))?jj.*"),
+			zero.PatternAt(),
+		}, getdb,
 		zero.OnlyGroup).SetBlock(true).Limit(func(ctx *zero.Ctx) *rate.Limiter {
 		lt := jjLimiter.Load(fmt.Sprintf("%d_%d", ctx.Event.GroupID, ctx.Event.UserID))
 		ctx.State["jj_last_touch"] = lt.LastTouch()
@@ -351,8 +355,8 @@ func init() {
 		})))
 	},
 	).Handle(func(ctx *zero.Ctx) {
-		fiancee := ctx.State["regex_matched"].([]string)
-		adduser, err := strconv.ParseInt(fiancee[3]+fiancee[4], 10, 64)
+		fiancee := ctx.State[zero.KEY_PATTERN].([]interface{})[1].(string)
+		adduser, err := strconv.ParseInt(fiancee, 10, 64)
 		if err != nil {
 			ctx.SendChain(message.Text("ERROR:", err))
 			return
@@ -378,7 +382,7 @@ func init() {
 			jjLimiter.Delete(t)
 			return
 		}
-		fencingResult, f1, err := processJJuAction(&myniuniu, &adduserniuniu, t, fiancee[1])
+		fencingResult, f1, err := processJJuAction(&myniuniu, &adduserniuniu, t, ctx.State[zero.KEY_PATTERN].([]interface{})[0].([]string)[1])
 		if err != nil {
 			ctx.SendChain(message.Text(err))
 			return
