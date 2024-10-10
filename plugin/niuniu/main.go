@@ -3,6 +3,7 @@ package niuniu
 
 import (
 	"fmt"
+	"github.com/wdvxdr1123/ZeroBot/extension"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -336,11 +337,11 @@ func init() {
 		ctx.SendChain(message.At(uid),
 			message.Text("注册成功,你的牛牛现在有", u.Length, "cm"))
 	})
-	en.OnPattern(
-		[]zero.PatternSegment{
+	en.OnMessage(
+		zero.PatternRule(
 			zero.PatternText(".*(?:使用(.*))?jj.*"),
 			zero.PatternAt(),
-		}, getdb,
+		), getdb,
 		zero.OnlyGroup).SetBlock(true).Limit(func(ctx *zero.Ctx) *rate.Limiter {
 		lt := jjLimiter.Load(fmt.Sprintf("%d_%d", ctx.Event.GroupID, ctx.Event.UserID))
 		ctx.State["jj_last_touch"] = lt.LastTouch()
@@ -355,12 +356,10 @@ func init() {
 		})))
 	},
 	).Handle(func(ctx *zero.Ctx) {
-		fiancee := ctx.State[zero.KEY_PATTERN].([]interface{})[1].(string)
-		adduser, err := strconv.ParseInt(fiancee, 10, 64)
-		if err != nil {
-			ctx.SendChain(message.Text("ERROR:", err))
-			return
-		}
+		matched := &extension.PatternModel{}
+		ctx.Parse(matched)
+		fiancee := matched.Matched[1].AsAt()
+		adduser := fiancee.UID
 		uid := ctx.Event.UserID
 		gid := ctx.Event.GroupID
 		t := fmt.Sprintf("%d_%d", gid, uid)
