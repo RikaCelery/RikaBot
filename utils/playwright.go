@@ -34,7 +34,7 @@ var (
 	pw                 *playwright.Playwright
 	ctx                playwright.BrowserContext
 	inited             = false
-	defaultPageOptions = playwright.PageScreenshotOptions{
+	DefaultPageOptions = playwright.PageScreenshotOptions{
 		FullPage:   playwright.Bool(true),
 		Type:       playwright.ScreenshotTypeJpeg,
 		Quality:    playwright.Int(70),
@@ -43,7 +43,7 @@ var (
 		Scale:      playwright.ScreenshotScaleDevice,
 		Style:      playwright.String(`body{padding: 0;margin: 0;}`),
 	}
-	defaultElementOptions = playwright.ElementHandleScreenshotOptions{
+	DefaultElementOptions = playwright.ElementHandleScreenshotOptions{
 		Type:       playwright.ScreenshotTypeJpeg,
 		Quality:    playwright.Int(70),
 		Timeout:    playwright.Float(60_000),
@@ -73,6 +73,7 @@ func init() {
 		ChromiumSandbox:   playwright.Bool(false),
 		AcceptDownloads:   playwright.Bool(false),
 		Headless:          playwright.Bool(true),
+		//ColorScheme:       playwright.ColorSchemeDark,
 	})
 	if err != nil {
 		return
@@ -102,7 +103,7 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 		return nil, errors.New("unsupport schema")
 	}
 	o := ScreenShotPageOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: defaultPageOptions}
+		Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
 	if len(option) != 0 {
 		o = option[0]
 	}
@@ -148,13 +149,27 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 	}
 	return screenshot, err
 }
-
-func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (bytes []byte, err error) {
+func ScreenShotElementURL(u string, selector string, option ...ScreenShotElementOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
 	}
-	o := ScreenShotPageOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: defaultPageOptions}
+	parse, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+	ipReg := regexp.MustCompile(`^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$`)
+	if parse.Scheme == "" {
+		if ipReg.MatchString(parse.Host) {
+			parse.Scheme = "http"
+		} else {
+			parse.Scheme = "https"
+		}
+	}
+	if parse.Scheme != "https" && parse.Scheme != "http" {
+		return nil, errors.New("unsupport schema")
+	}
+	o := ScreenShotElementOption{Width: 600,
+		Sleep: time.Millisecond * 100, PwOption: playwright.ElementHandleScreenshotOptions{}}
 	if len(option) != 0 {
 		o = option[0]
 	}
@@ -165,6 +180,61 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 			ChromiumSandbox:   playwright.Bool(false),
 			AcceptDownloads:   playwright.Bool(false),
 			Headless:          playwright.Bool(true),
+			//ColorScheme:       playwright.ColorSchemeDark,
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer ctx.Close()
+	}
+	page, err := ctx.NewPage()
+	if err != nil {
+		return nil, err
+	}
+	defer page.Close()
+	response, err := page.Goto(parse.String())
+	if err != nil {
+		return nil, err
+	}
+	if !response.Ok() {
+		return nil, errors.New("response not ok")
+	}
+	if o.Height == 0 {
+		o.Height = 100
+	}
+	err = page.SetViewportSize(o.Width, o.Height)
+	if err != nil {
+		return nil, err
+	}
+	if o.Before != nil {
+		o.Before(page)
+	}
+	time.Sleep(o.Sleep)
+	element, err := page.QuerySelector(selector)
+
+	if err != nil {
+		return nil, err
+	}
+	return element.Screenshot(o.PwOption)
+}
+
+func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (bytes []byte, err error) {
+	if !inited {
+		return nil, errors.New("playwright not inited")
+	}
+	o := ScreenShotPageOption{Width: 600,
+		Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
+	if len(option) != 0 {
+		o = option[0]
+	}
+	ctx := ctx
+	if o.DPI != 0 {
+		ctx, err = pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", o.DPI), playwright.BrowserTypeLaunchPersistentContextOptions{
+			DeviceScaleFactor: playwright.Float(o.DPI),
+			ChromiumSandbox:   playwright.Bool(false),
+			AcceptDownloads:   playwright.Bool(false),
+			Headless:          playwright.Bool(true),
+			//ColorScheme:       playwright.ColorSchemeDark,
 		})
 		if err != nil {
 			return nil, err
@@ -203,7 +273,7 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 	}
 	ctx := ctx
 	o := ScreenShotElementOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: defaultElementOptions}
+		Sleep: time.Millisecond * 100, PwOption: DefaultElementOptions}
 	if len(option) != 0 {
 		o = option[0]
 	}
