@@ -381,7 +381,7 @@ func init() {
 			jjLimiter.Delete(t)
 			return
 		}
-		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, fiancee[1])
+		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, matched.Matched[0].AsText().Groups[1])
 		if err != nil {
 			ctx.SendChain(message.Text(err))
 			return
