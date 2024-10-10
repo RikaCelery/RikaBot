@@ -39,7 +39,6 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/liuzl/gocc v0.0.0-20231231122217-0372e1059ca5
 	github.com/mattn/go-runewidth v0.0.4
-	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/mroth/weightedrand v1.0.0
 	github.com/notnil/chess v1.9.0
@@ -54,7 +53,7 @@ require (
 	gitlab.com/gomidi/midi/v2 v2.1.7
 	golang.org/x/image v0.16.0
 	golang.org/x/sys v0.20.0
-	golang.org/x/text v0.15.0
+	golang.org/x/text v0.19.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sortutil v1.2.0
 )
