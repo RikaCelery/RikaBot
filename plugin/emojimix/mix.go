@@ -111,16 +111,6 @@ func match(ctx *zero.Ctx) bool {
 		ctx.State["emojimix_command"] = false
 	}
 	msgEmojis := extractEmoji(ctx.Event.Message)
-	for _, emoji := range msgEmojis {
-		slug, _ := emojiToHashSlug(emoji)
-		_, ok := emojis[slug]
-		if !ok {
-			if ctx.State["emojimix_command"].(bool) {
-				ctx.Send(fmt.Sprintf("不支持混合%s", emoji))
-			}
-			return false
-		}
-	}
 	logrus.Debugln("[emojimix] emojis:", msgEmojis)
 	if len(msgEmojis) > 2 || len(msgEmojis) == 0 {
 		return false
@@ -136,6 +126,16 @@ func match(ctx *zero.Ctx) bool {
 		n = 2
 	}
 	ctx.State["emojimix"] = msgEmojis[:n]
+	for _, emoji := range msgEmojis {
+		slug, _ := emojiToHashSlug(emoji)
+		_, ok := emojis[slug]
+		if !ok {
+			if ctx.State["emojimix_command"].(bool) {
+				ctx.Send(fmt.Sprintf("不支持混合%s", emoji))
+			}
+			return false
+		}
+	}
 	return true
 }
 
