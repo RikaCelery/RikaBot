@@ -86,6 +86,19 @@ func init() {
 	inited = true
 }
 
+// WaitImage 等待图片加载完毕
+func WaitImage(page playwright.Page) {
+	all, _ := page.Locator("img").All()
+	for _, locator := range all {
+		if visible, _ := locator.IsVisible(); !visible {
+			continue
+		}
+		_ = locator.ScrollIntoViewIfNeeded()
+		_ = playwright.NewPlaywrightAssertions().Locator(locator).ToHaveJSProperty("complete", true)
+		_ = playwright.NewPlaywrightAssertions().Locator(locator).Not().ToHaveJSProperty("naturalWidth", 0)
+	}
+}
+
 // ScreenShotPageURL 网址截屏
 func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
@@ -143,6 +156,13 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 	if err != nil {
 		return nil, err
 	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	o.Height = evaluated.(int)
+	err = page.SetViewportSize(o.Width, o.Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
 	if o.Before != nil {
 		o.Before(page)
 	}
@@ -212,6 +232,13 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 	if err != nil {
 		return nil, err
 	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	o.Height = evaluated.(int)
+	err = page.SetViewportSize(o.Width, o.Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
 	if o.Before != nil {
 		o.Before(page)
 	}
@@ -260,6 +287,13 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 	if err != nil {
 		return nil, err
 	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	o.Height = evaluated.(int)
+	err = page.SetViewportSize(o.Width, o.Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
 	if o.Before != nil {
 		o.Before(page)
 	}
@@ -310,6 +344,13 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 	if err != nil {
 		return nil, err
 	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	o.Height = evaluated.(int)
+	err = page.SetViewportSize(o.Width, o.Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
 	if o.Before != nil {
 		o.Before(page)
 	}
