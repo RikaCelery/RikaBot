@@ -29,12 +29,19 @@ func init() { // 插件主体
 		Help: "- {prefix}github [xxx]\n" +
 			"- {prefix}github -p [xxx]",
 	})
-	e.OnRegex(`(github.com\/([^\/]+)\/([^\/]+)(?:(\/pulls|\/issues|\/discussions|\/actions(?:\/runs)?)(\/\d+)?)?[a-zA-Z0-9-_+\/#.%&=\[\]|\\]*)`).SetBlock(true).
+	e.OnRegex(`(github.com/([^/ \n]+)/([^/ \n]+)(?:(/pulls|/issues|/discussions|/actions(?:/runs)?)/?(\d+)?)?[a-zA-Z0-9-_+/#.%&=\[\]|\\]*)`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			log.Debugf("[github] regex matched: %v", ctx.State["regex_matched"].([]string))
 			model := &extension.RegexModel{}
 			ctx.Parse(model)
 			switch expression := model.Matched[4]; expression {
+			case "":
+				ctx.Send(
+					message.Image(
+						"https://opengraph.githubassets.com/0/"+model.Matched[2]+"/"+model.Matched[3],
+					).Add("cache", 0),
+				)
+				return
 			case "/actions/runs":
 			case "/actions":
 				fallthrough
