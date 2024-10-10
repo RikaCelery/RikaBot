@@ -381,7 +381,7 @@ func init() {
 			jjLimiter.Delete(t)
 			return
 		}
-		fencingResult, f1, err := processJJuAction(&myniuniu, &adduserniuniu, t, ctx.State[zero.KEY_PATTERN].([]interface{})[0].([]string)[1])
+		fencingResult, f1, err := processJJuAction(&myniuniu, &adduserniuniu, t, matched.Matched[0].AsText().Groups[1])
 		if err != nil {
 			ctx.SendChain(message.Text(err))
 			return
