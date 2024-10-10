@@ -36,8 +36,10 @@ func init() {
 	en := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "漂流瓶",
-		Help: `- @bot pick
-- @bot throw xxx (xxx为投递内容)`,
+		Help: `- {prefix}pick 或 {prefix}捡漂流瓶
+- {prefix}throw xxx (xxx为投递内容)
+- {prefix}扔漂流瓶 xxx (xxx为投递内容)
+`,
 		PrivateDataFolder: "driftbottle",
 	})
 	seaSide.DBPath = en.DataFolder() + "sea.db"
@@ -47,7 +49,7 @@ func init() {
 	}
 
 	_ = createChannel(seaSide)
-	en.OnFullMatch("pick", zero.OnlyToMe, zero.OnlyGroup).Limit(ctxext.LimitByGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	en.OnCommandGroup([]string{"pick", "捡漂流瓶"}, zero.OnlyGroup).Limit(ctxext.LimitByGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		be, err := fetchBottle(seaSide)
 		if err != nil {
 			ctx.SendChain(message.Text("ERR:", err))
@@ -60,9 +62,9 @@ func init() {
 		ctx.Send(msg)
 	})
 
-	en.OnRegex(`throw\s*(.*)`, zero.OnlyToMe, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	en.OnCommandGroup([]string{"throw", "扔漂流瓶"}, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		senderFormatTime := time.Unix(ctx.Event.Time, 0).Format("2006-01-02 15:04:05")
-		rawSenderMessage := ctx.State["regex_matched"].([]string)[1]
+		rawSenderMessage := ctx.State["args"].(string)
 		rawMessageCallBack := message.UnescapeCQCodeText(rawSenderMessage)
 		keyWordsNum := utf8.RuneCountInString(rawMessageCallBack)
 		if keyWordsNum < 10 {

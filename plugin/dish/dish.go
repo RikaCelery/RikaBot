@@ -33,7 +33,9 @@ func init() {
 	en := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "程序员做饭指南",
-		Help:             "-怎么做[xxx]|烹饪[xxx]|随机菜谱|随便做点菜",
+		Help: `- {prefix}怎么做[xxx]
+- {prefix}烹饪[xxx]
+- 随机菜谱|随便做点菜`,
 		PublicDataFolder: "Dish",
 	})
 
@@ -56,7 +58,7 @@ func init() {
 		logrus.Warnln("[dish]插件未能成功初始化")
 	}
 
-	en.OnPrefixGroup([]string{"怎么做", "烹饪"}).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
+	en.OnCommandGroup([]string{"怎么做", "烹饪"}).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
 		if !initialized {
 			ctx.SendChain(message.Text("客官，本店暂未开业"))
 			return
