@@ -29,7 +29,7 @@ func init() { // 插件主体
 		Help: "- {prefix}github [xxx]\n" +
 			"- {prefix}github -p [xxx]",
 	})
-	e.OnRegex(`(github.com/([^/ \n]+)/([^/ \n]+)(?:(/pulls|/issues|/discussions|/actions(?:/runs)?)/?(\d+)?)?[a-zA-Z0-9-_+/#.%&=\[\]|\\]*)`).SetBlock(true).
+	e.OnRegex(`(github.com/([^/ \n]+)/([^/ \n]+)(?:(/pulls?|/issues|/discussions|/actions(?:/runs)?|/blob)/?(\d+)?)?[^#\s]*(#L\d+-L\d+)?)`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			log.Debugf("[github] regex matched: %v", ctx.State["regex_matched"].([]string))
 			model := &extension.RegexModel{}
@@ -42,14 +42,19 @@ func init() { // 插件主体
 					).Add("cache", 0),
 				)
 				return
-			case "/actions/runs":
-			case "/actions":
+			case "/blob":
 				fallthrough
-			case "/pulls":
+			case "/actions/runs":
 				fallthrough
 			case "/issues":
 				fallthrough
 			case "/discussions":
+				fallthrough
+			case "/pull":
+				fallthrough
+			case "/actions":
+				fallthrough
+			case "/pulls":
 				fallthrough
 			default:
 				bytes, err := utils.ScreenShotElementURL(
@@ -64,7 +69,9 @@ func init() { // 插件主体
     position: static !important;
     display: none !important;
 }
-
+#repos-sticky-header{
+    position: relative !important;
+}
 turbo-frame {
     padding-top: 10px;
     padding-bottom: 20px;
