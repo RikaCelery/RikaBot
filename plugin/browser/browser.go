@@ -3,11 +3,13 @@ package browser
 
 import (
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
+
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 )
 
 func init() {

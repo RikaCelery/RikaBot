@@ -4,12 +4,14 @@ package quote
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
-	"github.com/playwright-community/playwright-go"
 	"html"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/playwright-community/playwright-go"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
@@ -218,7 +220,7 @@ func RenderHistoryImage(j string, grayScale bool, q int) ([]byte, error) {
 	return utils.ScreenShotElementTemplate("message.gohtml", ".wrapper", j, utils.ScreenShotElementOption{
 		Width: 400,
 		DPI:   2,
-		PwOption: playwright.ElementHandleScreenshotOptions{
+		PwOption: playwright.LocatorScreenshotOptions{
 			Type:       playwright.ScreenshotTypeJpeg,
 			Quality:    playwright.Int(q),
 			Timeout:    playwright.Float(2_000),

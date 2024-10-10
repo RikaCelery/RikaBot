@@ -3,16 +3,18 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/playwright-community/playwright-go"
-	"github.com/sirupsen/logrus"
 	"html/template"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/playwright-community/playwright-go"
+	"github.com/sirupsen/logrus"
 )
 
+// ScreenShotPageOption 截屏选项
 type ScreenShotPageOption struct {
 	Width    int
 	Height   int
@@ -21,19 +23,22 @@ type ScreenShotPageOption struct {
 	PwOption playwright.PageScreenshotOptions
 	Sleep    time.Duration
 }
+
+// ScreenShotElementOption 元素截屏选项
 type ScreenShotElementOption struct {
 	Width    int
 	Height   int
 	DPI      float64
 	Before   func(page playwright.Page)
-	PwOption playwright.ElementHandleScreenshotOptions
+	PwOption playwright.LocatorScreenshotOptions
 	Sleep    time.Duration
 }
 
 var (
-	pw                 *playwright.Playwright
-	ctx                playwright.BrowserContext
-	inited             = false
+	pw     *playwright.Playwright
+	ctx    playwright.BrowserContext
+	inited = false
+	// DefaultPageOptions 默认截图选项
 	DefaultPageOptions = playwright.PageScreenshotOptions{
 		FullPage:   playwright.Bool(true),
 		Type:       playwright.ScreenshotTypeJpeg,
@@ -43,7 +48,8 @@ var (
 		Scale:      playwright.ScreenshotScaleDevice,
 		Style:      playwright.String(`body{padding: 0;margin: 0;}`),
 	}
-	DefaultElementOptions = playwright.ElementHandleScreenshotOptions{
+	// DefaultElementOptions 默认元素截屏选项
+	DefaultElementOptions = playwright.LocatorScreenshotOptions{
 		Type:       playwright.ScreenshotTypeJpeg,
 		Quality:    playwright.Int(70),
 		Timeout:    playwright.Float(60_000),
@@ -51,7 +57,6 @@ var (
 		Scale:      playwright.ScreenshotScaleDevice,
 		Style:      playwright.String(`body{padding: 0;margin: 0;}`),
 	}
-	globalWaiter = 1
 )
 
 func init() {
@@ -79,10 +84,9 @@ func init() {
 		return
 	}
 	inited = true
-
 }
 
-// ScreenShotPageURL 截屏
+// ScreenShotPageURL 网址截屏
 func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
@@ -149,6 +153,8 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 	}
 	return screenshot, err
 }
+
+// ScreenShotElementURL 网址元素截屏
 func ScreenShotElementURL(u string, selector string, option ...ScreenShotElementOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
@@ -169,7 +175,7 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 		return nil, errors.New("unsupport schema")
 	}
 	o := ScreenShotElementOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: playwright.ElementHandleScreenshotOptions{}}
+		Sleep: time.Millisecond * 100, PwOption: playwright.LocatorScreenshotOptions{}}
 	if len(option) != 0 {
 		o = option[0]
 	}
@@ -210,14 +216,11 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 		o.Before(page)
 	}
 	time.Sleep(o.Sleep)
-	element, err := page.QuerySelector(selector)
-
-	if err != nil {
-		return nil, err
-	}
-	return element.Screenshot(o.PwOption)
+	locator := page.Locator(selector)
+	return locator.Screenshot(o.PwOption)
 }
 
+// ScreenShotPageContent 自定义内容截屏
 func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
@@ -267,6 +270,8 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 	}
 	return screenshot, err
 }
+
+// ScreenShotElementContent 自定义元素截屏
 func ScreenShotElementContent(content string, selector string, option ...ScreenShotElementOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
@@ -309,15 +314,13 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 		o.Before(page)
 	}
 	time.Sleep(o.Sleep)
-	querySelector, err := page.QuerySelector(selector)
-	if err != nil {
-		return nil, err
-	}
-	querySelector.ScrollIntoViewIfNeeded()
-	screenshot, err := querySelector.Screenshot(o.PwOption)
+	locator := page.Locator(selector)
+	_ = locator.ScrollIntoViewIfNeeded(playwright.LocatorScrollIntoViewIfNeededOptions{Timeout: playwright.Float(1000)})
+	screenshot, err := locator.Screenshot(o.PwOption)
 	return screenshot, err
 }
 
+// ScreenShotPageTemplate 模板截屏
 func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
@@ -380,6 +383,8 @@ func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOptio
 	}
 	return ScreenShotPageContent(buf.String(), option...)
 }
+
+// ScreenShotElementTemplate 元素模板截屏
 func ScreenShotElementTemplate(name string, selector string, data any, option ...ScreenShotElementOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")

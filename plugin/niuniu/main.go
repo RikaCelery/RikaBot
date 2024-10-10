@@ -3,11 +3,12 @@ package niuniu
 
 import (
 	"fmt"
-	"github.com/wdvxdr1123/ZeroBot/extension"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/wdvxdr1123/ZeroBot/extension"
 
 	"github.com/FloatTech/AnimeAPI/wallet"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -357,7 +358,7 @@ func init() {
 	},
 	).Handle(func(ctx *zero.Ctx) {
 		matched := &extension.PatternModel{}
-		ctx.Parse(matched)
+		_ = ctx.Parse(matched)
 		fiancee := matched.Matched[1].AsAt()
 		adduser := fiancee.UID
 		uid := ctx.Event.UserID

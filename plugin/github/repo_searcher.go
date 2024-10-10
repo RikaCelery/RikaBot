@@ -2,15 +2,17 @@
 package github
 
 import (
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
-	"github.com/playwright-community/playwright-go"
-	log "github.com/sirupsen/logrus"
-	"github.com/wdvxdr1123/ZeroBot/extension"
-	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/playwright-community/playwright-go"
+	log "github.com/sirupsen/logrus"
+	"github.com/wdvxdr1123/ZeroBot/extension"
+	"github.com/wdvxdr1123/ZeroBot/extension/shell"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 
 	"github.com/FloatTech/floatbox/web"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -33,7 +35,7 @@ func init() { // 插件主体
 		Handle(func(ctx *zero.Ctx) {
 			log.Debugf("[github] regex matched: %v", ctx.State["regex_matched"].([]string))
 			model := &extension.RegexModel{}
-			ctx.Parse(model)
+			_ = ctx.Parse(model)
 			switch expression := model.Matched[4]; expression {
 			case "":
 				ctx.Send(
@@ -61,7 +63,7 @@ func init() { // 插件主体
 					model.Matched[1],
 					"turbo-frame",
 					utils.ScreenShotElementOption{Width: 850,
-						Sleep: time.Millisecond * 1000, PwOption: playwright.ElementHandleScreenshotOptions{
+						Sleep: time.Millisecond * 1000, PwOption: playwright.LocatorScreenshotOptions{
 							Style: playwright.String(`.gh-header-sticky,
 .gh-header-shadow,
 .gh-header-show .gh-header-actions,
@@ -88,7 +90,6 @@ turbo-frame {
 					return
 				}
 				ctx.Send(message.ImageBytes(bytes).Add("cache", 0))
-
 			}
 		})
 	e.OnCommand(`github`).SetBlock(true).

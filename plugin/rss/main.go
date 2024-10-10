@@ -4,15 +4,15 @@ package rss
 import (
 	"errors"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
 	"html/template"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 
 	"github.com/FloatTech/floatbox/process"
 	sql "github.com/FloatTech/sqlite"
@@ -99,7 +99,6 @@ create table if not exists 'group_rss_format'
 			panic(err)
 		}
 	}
-	client := &http.Client{}
 	fp := gofeed.NewParser()
 	var lock = sync.Mutex{}
 	var cronID cron.EntryID
@@ -131,7 +130,7 @@ create table if not exists 'group_rss_format'
 						groups := ctx.GetGroupList().Array()
 						for _, group := range groups {
 							if group.Get("group_id").Int() == int64(res.GID) {
-								_, err = sendRssMessage(db, item, client, feed, ctx, res)
+								_, err = sendRssMessage(db, item, feed, ctx, res)
 								res.LastUpdate = item.Published
 								err = setRssPushed(db, item, res)
 								if err != nil {
@@ -274,7 +273,7 @@ create table if not exists 'group_rss_format'
 			GID:        int(ctx.Event.GroupID),
 			LastUpdate: time.UnixMicro(1000).Format(time.RFC1123Z),
 		}
-		_, err = sendRssMessageFormat(db, feed.Items[0], client, feed, ctx, &res, argRssTest.Format)
+		_, err = sendRssMessageFormat(db, feed.Items[0], feed, ctx, &res, argRssTest.Format)
 		if err != nil {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("[ERROR]: %v", err)))
 			return
@@ -367,8 +366,8 @@ create table if not exists 'group_rss_format'
 
 func getTemplate(db *sql.Sqlite, gid int64, feedURL string) (string, error) {
 	var t string
-	if db.CanQuery(fmt.Sprintf("select template from group_rss_format where GID = %d and FeedURL = '%s'", gid, feedURL)) {
-		row := db.DB.QueryRow(fmt.Sprintf("select template from group_rss_format where GID = %d and FeedURL = '%s'", gid, feedURL))
+	if db.CanQuery("select template from group_rss_format where GID = ? and FeedURL = ?", gid, feedURL) {
+		row := db.DB.QueryRow("select template from group_rss_format where GID = ? and FeedURL = ?", gid, feedURL)
 		err := row.Scan(&t)
 		if err != nil {
 			return "", err
@@ -379,8 +378,8 @@ func getTemplate(db *sql.Sqlite, gid int64, feedURL string) (string, error) {
 }
 func getRssRenderType(db *sql.Sqlite, gid int64, feedURL string) int {
 	var t = -1
-	if db.CanQuery(fmt.Sprintf("select RenderType from group_rss_format where GID = %d and FeedURL = '%s';", gid, feedURL)) {
-		row := db.DB.QueryRow(fmt.Sprintf("select RenderType from group_rss_format where GID = %d and FeedURL = '%s';", gid, feedURL))
+	if db.CanQuery("select RenderType from group_rss_format where GID = ? and FeedURL = ?;", gid, feedURL) {
+		row := db.DB.QueryRow("select RenderType from group_rss_format where GID = ? and FeedURL = ?;", gid, feedURL)
 		err := row.Scan(&t)
 		if err != nil {
 			return -1
@@ -407,14 +406,14 @@ func setRssRenderType(db *sql.Sqlite, t int, gid int64, feedURL string, tmpl str
 	return err
 }
 
-func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (int64, error) {
-	msg, err := renderRssToMessage(db, t, item, feed, res, client)
+func sendRssMessageFormat(db *sql.Sqlite, item *gofeed.Item, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo, t int) (int64, error) {
+	msg, err := renderRssToMessage(db, t, item, feed, res)
 	mid := ctx.SendGroupMessage(int64(res.GID), msg)
 	return mid, err
 }
-func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, client *http.Client, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (int64, error) {
+func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, feed *gofeed.Feed, ctx *zero.Ctx, res *rssInfo) (int64, error) {
 	var t = getRssRenderType(db, int64(res.GID), res.Feed)
-	msg, err := renderRssToMessage(db, t, item, feed, res, client)
+	msg, err := renderRssToMessage(db, t, item, feed, res)
 	mid := ctx.SendGroupMessage(int64(res.GID), msg)
 	return mid, err
 }
@@ -517,9 +516,9 @@ func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (str
 // 3: 推送标题、链接和图片
 // 4: 推送标题、链接和图片和内容
 // 5: 自定义消息模板
-func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo, client *http.Client) (interface{}, error) {
+func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed *gofeed.Feed, res *rssInfo) (interface{}, error) {
 	defer func() {
-		//if err := recover(); err != nil {
+		// if err := recover(); err != nil {
 		//	marshal, _ := json.MarshalIndent(item, "", "  ")
 		//	fmt.Printf("%v", string(marshal))
 		//	fmt.Printf("%v", res)
