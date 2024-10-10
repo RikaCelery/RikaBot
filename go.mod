@@ -39,13 +39,12 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/liuzl/gocc v0.0.0-20231231122217-0372e1059ca5
 	github.com/mattn/go-runewidth v0.0.4
-	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/mroth/weightedrand v1.0.0
 	github.com/notnil/chess v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/playwright-community/playwright-go v0.4702.0
-	github.com/shirou/gopsutil/v3 v3.24.4
+	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/shogo82148/androidbinary v1.0.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tidwall/gjson v1.17.3
