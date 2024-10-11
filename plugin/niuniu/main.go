@@ -49,13 +49,14 @@ var (
 			"- 牛子深度排行\n",
 		PrivateDataFolder: "niuniu",
 	})
-	dajiaoLimiter = rate.NewManager[string](time.Second*90, 1)
-	jjLimiter     = rate.NewManager[string](time.Second*150, 1)
+	dajiaoLimiter = rate.NewManager[string](time.Second*300, 1)
+	jjLimiter     = rate.NewManager[string](time.Second*600, 1)
 	jjCount       = syncx.Map[string, *lastLength]{}
 	prop          = syncx.Map[string, *propsCount]{}
 )
 
 func init() {
+	en.ApplySingle(ctxext.NoHintSingle)
 	en.OnFullMatch("牛牛背包", zero.OnlyGroup, getdb).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		gid := ctx.Event.GroupID
 		uid := ctx.Event.UserID
@@ -277,11 +278,14 @@ func init() {
 		return lt
 	}, func(ctx *zero.Ctx) {
 		timePass := int(time.Since(time.Unix(ctx.State["dajiao_last_touch"].(int64), 0)).Seconds())
-		ctx.SendChain(message.Text(randomChoice([]string{
+		if 300-timePass < 15 {
+			return
+		}
+		collectsend(ctx, message.At(ctx.Event.UserID), message.Text(randomChoice([]string{
 			fmt.Sprintf("才过去了%ds时间,你就又要打🦶了，身体受得住吗", timePass),
-			fmt.Sprintf("不行不行，你的身体会受不了的，歇%ds再来吧", 90-timePass),
-			fmt.Sprintf("休息一下吧，会炸膛的！%ds后再来吧", 90-timePass),
-			fmt.Sprintf("打咩哟，你的牛牛会爆炸的，休息%ds再来吧", 90-timePass),
+			fmt.Sprintf("不行不行，你的身体会受不了的，歇%ds再来吧", 300-timePass),
+			fmt.Sprintf("休息一下吧，会炸膛的！%ds后再来吧", 300-timePass),
+			fmt.Sprintf("打咩哟，你的牛牛会爆炸的，休息%ds再来吧", 300-timePass),
 		})))
 	}).Handle(func(ctx *zero.Ctx) {
 		// 获取群号和用户ID
@@ -308,7 +312,7 @@ func init() {
 			return
 		}
 
-		ctx.SendChain(message.Text(messages))
+		collectsend(ctx, message.Text(messages))
 	})
 	en.OnFullMatch("注册牛牛", zero.OnlyGroup, getdb).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		gid := ctx.Event.GroupID
@@ -349,11 +353,14 @@ func init() {
 		return lt
 	}, func(ctx *zero.Ctx) {
 		timePass := int(time.Since(time.Unix(ctx.State["jj_last_touch"].(int64), 0)).Seconds())
-		ctx.SendChain(message.Text(randomChoice([]string{
+		if 600-timePass < 15 {
+			return
+		}
+		collectsend(ctx, message.At(ctx.Event.UserID), message.Text(randomChoice([]string{
 			fmt.Sprintf("才过去了%ds时间,你就又要击剑了，真是饥渴难耐啊", timePass),
-			fmt.Sprintf("不行不行，你的身体会受不了的，歇%ds再来吧", 150-timePass),
-			fmt.Sprintf("你这种男同就应该被送去集中营！等待%ds再来吧", 150-timePass),
-			fmt.Sprintf("打咩哟！你的牛牛会炸的，休息%ds再来吧", 150-timePass),
+			fmt.Sprintf("不行不行，你的身体会受不了的，歇%ds再来吧", 600-timePass),
+			fmt.Sprintf("你这种男同就应该被送去集中营！等待%ds再来吧", 600-timePass),
+			fmt.Sprintf("打咩哟！你的牛牛会炸的，休息%ds再来吧", 600-timePass),
 		})))
 	},
 	).Handle(func(ctx *zero.Ctx) {
@@ -367,18 +374,18 @@ func init() {
 		updateMap(t, false)
 		myniuniu, err := db.findNiuNiu(gid, uid)
 		if err != nil {
-			ctx.SendChain(message.Text("你还没有牛牛快去注册一个吧!"))
+			collectsend(ctx, message.At(uid), message.Text("你还没有牛牛快去注册一个吧!"))
 			jjLimiter.Delete(t)
 			return
 		}
 		adduserniuniu, err := db.findNiuNiu(gid, adduser)
 		if err != nil {
-			ctx.SendChain(message.At(uid), message.Text("对方还没有牛牛呢，不能🤺"))
+			collectsend(ctx, message.At(uid), message.Text("对方还没有牛牛呢，不能🤺"))
 			jjLimiter.Delete(t)
 			return
 		}
 		if uid == adduser {
-			ctx.SendChain(message.Text("你要和谁🤺？你自己吗？"))
+			collectsend(ctx, message.At(uid), message.Text("你要和谁🤺？你自己吗？"))
 			jjLimiter.Delete(t)
 			return
 		}
@@ -398,7 +405,7 @@ func init() {
 			return
 		}
 
-		ctx.SendChain(message.At(uid), message.Text(" ", fencingResult))
+		collectsend(ctx, message.At(uid), message.Text(" ", fencingResult))
 		j := fmt.Sprintf("%d_%d", gid, adduser)
 		count, ok := jjCount.Load(j)
 		var c lastLength
@@ -443,15 +450,16 @@ func init() {
 		gid := ctx.Event.GroupID
 		_, err := db.findNiuNiu(gid, uid)
 		if err != nil {
-			ctx.SendChain(message.Text("你还没有牛牛呢，咋的你想凭空造一个啊"))
+			collectsend(ctx, message.At(uid), message.Text("你还没有牛牛呢，咋的你想凭空造一个啊"))
 			return
 		}
 		err = db.deleteniuniu(gid, uid)
 		if err != nil {
 			ctx.SendChain(message.Text("注销失败"))
+			panic(err)
 			return
 		}
-		ctx.SendChain(message.Text("注销成功,你已经没有牛牛了"))
+		collectsend(ctx, message.At(uid), message.Text("注销成功,你已经没有牛牛了"))
 	})
 }
 
