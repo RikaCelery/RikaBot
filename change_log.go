@@ -7,9 +7,49 @@ type changeLogStruct struct {
 
 var changeLog = []changeLogStruct{
 	{
+		Version: "2024-10-09",
+		ChangeLog: `feat(niuniu):在冷却还剩15s以下时不再提醒用户 feat(niuniu):多条打脚/jj/注册注销牛牛消息会合起来发(60s一次) change(niuniu):打胶5分钟CD，jj10分钟CD RikaCelery A minute ago
+优化代码结构 RikaCelery 56 minutes ago
+playwright auto wait all image loaded RikaCelery Today 00:41
+rm docker actions RikaCelery Yesterday 16:08
+change(dish): 怎么做和烹饪改为命令式(加{prefix}) change(driftbottle): 漂流瓶相关改为命令式(加{prefix}) RikaCelery Yesterday 15:57
+fix lint error RikaCelery Yesterday 15:41
+fix wrong merge RikaCelery Yesterday 15:12
+更新依赖 RikaCelery Yesterday 15:10
+Merge remote-tracking branch 'upstream/master' RikaCelery Yesterday 15:06
+更新依赖 RikaCelery Yesterday 15:00
+fix(github): 修复正则，移除无用代码 RikaCelery Yesterday 14:59
+fix(niuniu): 修复类型转换错误 RikaCelery Yesterday 14:59
+fix(github): 修正github链接识别正则 RikaCelery Yesterday 12:36
+更新依赖 RikaCelery Yesterday 12:24
+feat(github): 自动监听并渲染发送的GitHub链接 RikaCelery Yesterday 12:24
+公开playwrightOptions RikaCelery Yesterday 12:24
+fix(emojimix): 仅在混合时发送不支持提醒 RikaCelery Yesterday 12:23
+fix(niuniu): api update RikaCelery Yesterday 12:22
+fix(dish): 修复客官名显示为菜名的问题 (#1000) 昔音幻离* Yesterday 01:45
+fix: 牛牛逻辑问题 (#996) 宇~* 2024/10/9 20:59
+fix(emojimix): 修复在不支持的混合时报错 RikaCelery 2024/10/9 16:34
+feat: 集成playwright-go环境 feat(browser): 截图插件(默认禁用) RikaCelery 2024/10/9 16:08
+fix(niuniu): 牛牛插件无法jj fix(niuniu): 牛牛插件无法识别jj道具 RikaCelery 2024/10/9 09:31
+replace action email RikaCelery 2024/10/9 01:09
+remove webctrl RikaCelery 2024/10/9 01:03
+update depend RikaCelery 2024/10/9 00:41`,
+	},
+	{
 		Version: "2024-10-08",
 		ChangeLog: `
 feat(emojimix): 增加 {prefix}表情 获取表情动图
+chore(lint): lint no error && enable lint RikaCelery 2024/10/8 23:12
+fix(emojimix): 更改错误消息 RikaCelery 2024/10/8 22:39
+Create dependabot.yml RikaCelery* 2024/10/9 00:41
+disable lint and docker image RikaCelery 2024/10/8 16:25
+v2024-10-08 RikaCelery 2024/10/8 16:21
+fix(emojimix): 修复手机没动画 webp => gif RikaCelery 2024/10/8 10:08
+fix(emojimix): fix NPE RikaCelery 2024/10/8 09:43
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 RikaCelery 2024/10/8 09:30
+chore: update dependency RikaCelery 2024/10/8 09:24
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 feat(emojimix): 表情混合增加发送动图表情功能 RikaCelery 2024/10/8 09:01
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 RikaCelery 2024/10/8 08:48
 `,
 	},
 	{
