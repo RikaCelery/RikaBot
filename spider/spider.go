@@ -676,7 +676,7 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	if len(info.Magnets) != 0 {
 		send += "🧲:\n" + strings.Join(info.Magnets, "\n")
 	}
-	if len(send) > 0 {
+	if !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5) {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
 	}
 	if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
