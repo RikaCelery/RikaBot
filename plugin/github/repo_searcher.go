@@ -2,6 +2,7 @@
 package github
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,6 +25,30 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var hiddenCSS = `react-app{
+    min-height: unset!important;
+}
+.gh-header-sticky,
+.gh-header-shadow,
+.gh-header-show .gh-header-actions,
+#issues-index-tip,
+.hlWueK{
+    position: static !important;
+    display: none !important;
+}
+#repos-sticky-header{
+    position: relative !important;
+}
+turbo-frame {
+    padding-top: 10px;
+    padding-bottom: 20px;
+}
+
+.discussion-timeline-actions {
+    display: none;
+}
+`
+
 func init() { // 插件主体
 	e := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
@@ -45,7 +70,21 @@ func init() { // 插件主体
 				)
 				return
 			case "/blob":
-				fallthrough
+				bytes, err := utils.ScreenShotElementURL(
+					model.Matched[1],
+					"turbo-frame",
+					utils.ScreenShotElementOption{Width: 1000,
+						DPI:   1,
+						Sleep: time.Millisecond * 1000, PwOption: playwright.LocatorScreenshotOptions{
+							Style: playwright.String(hiddenCSS),
+						}},
+				)
+				if err != nil {
+					log.Errorln(err)
+					ctx.Send(fmt.Sprintf("ERROR: %v", err))
+					return
+				}
+				ctx.Send(message.ImageBytes(bytes).Add("cache", 0))
 			case "/actions/runs":
 				fallthrough
 			case "/issues":
@@ -63,26 +102,9 @@ func init() { // 插件主体
 					model.Matched[1],
 					"turbo-frame",
 					utils.ScreenShotElementOption{Width: 850,
+						DPI:   1,
 						Sleep: time.Millisecond * 1000, PwOption: playwright.LocatorScreenshotOptions{
-							Style: playwright.String(`.gh-header-sticky,
-.gh-header-shadow,
-.gh-header-show .gh-header-actions,
-#issues-index-tip {
-    position: static !important;
-    display: none !important;
-}
-#repos-sticky-header{
-    position: relative !important;
-}
-turbo-frame {
-    padding-top: 10px;
-    padding-bottom: 20px;
-}
-
-.discussion-timeline-actions {
-    display: none;
-}
-`),
+							Style: playwright.String(hiddenCSS),
 						}},
 				)
 				if err != nil {

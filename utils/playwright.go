@@ -99,6 +99,54 @@ func WaitImage(page playwright.Page) {
 	}
 }
 
+func screenShotPage(page playwright.Page, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.PageScreenshotOptions) ([]byte, error) {
+
+	if Height == 0 {
+		Height = 100
+	}
+	err := page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	Height = evaluated.(int)
+	err = page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
+	if Before != nil {
+		Before(page)
+	}
+	time.Sleep(Sleep)
+	return page.Screenshot(PwOption)
+
+}
+func screenShotElement(page playwright.Page, selector string, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
+
+	if Height == 0 {
+		Height = 100
+	}
+	err := page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	Height = evaluated.(int)
+	err = page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	WaitImage(page)
+	if Before != nil {
+		Before(page)
+	}
+	time.Sleep(Sleep)
+	locator := page.Locator(selector)
+	return locator.Screenshot(PwOption)
+
+}
+
 // ScreenShotPageURL 网址截屏
 func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
@@ -143,35 +191,16 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 	}
 	defer page.Close()
 	response, err := page.Goto(parse.String())
+	if errors.Is(err, playwright.ErrTimeout) {
+		response, err = page.Goto(parse.String())
+	}
 	if err != nil {
 		return nil, err
 	}
 	if !response.Ok() {
 		return nil, errors.New("response not ok")
 	}
-	if o.Height == 0 {
-		o.Height = 100
-	}
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	o.Height = evaluated.(int)
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	WaitImage(page)
-	if o.Before != nil {
-		o.Before(page)
-	}
-	time.Sleep(o.Sleep)
-	screenshot, err := page.Screenshot(o.PwOption)
-	if err != nil {
-		return nil, err
-	}
-	return screenshot, err
+	return screenShotPage(page, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
 // ScreenShotElementURL 网址元素截屏
@@ -219,32 +248,16 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 	}
 	defer page.Close()
 	response, err := page.Goto(parse.String())
+	if errors.Is(err, playwright.ErrTimeout) {
+		response, err = page.Goto(parse.String())
+	}
 	if err != nil {
 		return nil, err
 	}
 	if !response.Ok() {
 		return nil, errors.New("response not ok")
 	}
-	if o.Height == 0 {
-		o.Height = 100
-	}
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	o.Height = evaluated.(int)
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	WaitImage(page)
-	if o.Before != nil {
-		o.Before(page)
-	}
-	time.Sleep(o.Sleep)
-	locator := page.Locator(selector)
-	return locator.Screenshot(o.PwOption)
+	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
 // ScreenShotPageContent 自定义内容截屏
@@ -280,29 +293,7 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 	if err != nil {
 		return nil, err
 	}
-	if o.Height == 0 {
-		o.Height = 100
-	}
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	o.Height = evaluated.(int)
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	WaitImage(page)
-	if o.Before != nil {
-		o.Before(page)
-	}
-	time.Sleep(o.Sleep)
-	screenshot, err := page.Screenshot(o.PwOption)
-	if err != nil {
-		return nil, err
-	}
-	return screenshot, err
+	return screenShotPage(page, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
 // ScreenShotElementContent 自定义元素截屏
@@ -337,28 +328,7 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 	if err != nil {
 		return nil, err
 	}
-	if o.Height == 0 {
-		o.Height = 100
-	}
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	o.Height = evaluated.(int)
-	err = page.SetViewportSize(o.Width, o.Height)
-	if err != nil {
-		return nil, err
-	}
-	WaitImage(page)
-	if o.Before != nil {
-		o.Before(page)
-	}
-	time.Sleep(o.Sleep)
-	locator := page.Locator(selector)
-	_ = locator.ScrollIntoViewIfNeeded(playwright.LocatorScrollIntoViewIfNeededOptions{Timeout: playwright.Float(1000)})
-	screenshot, err := locator.Screenshot(o.PwOption)
-	return screenshot, err
+	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
 // ScreenShotPageTemplate 模板截屏
