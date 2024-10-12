@@ -35,7 +35,8 @@ type ScreenShotElementOption struct {
 }
 
 var (
-	GlobalCss = `
+	// GlobalCSS 全局样式, 用于屏蔽浮动/广告元素等
+	GlobalCSS = `
 #ageDisclaimerMainBG,
 .desktop-dialog-open,
 #modalWrapMTubes {
@@ -59,7 +60,7 @@ body {
 		Timeout:    playwright.Float(60_000),
 		Animations: playwright.ScreenshotAnimationsAllow,
 		Scale:      playwright.ScreenshotScaleDevice,
-		Style:      playwright.String(GlobalCss + "\n" + ``),
+		Style:      playwright.String(GlobalCSS + "\n" + ``),
 	}
 	// DefaultElementOptions 默认元素截屏选项
 	DefaultElementOptions = playwright.LocatorScreenshotOptions{
@@ -68,7 +69,7 @@ body {
 		Timeout:    playwright.Float(60_000),
 		Animations: playwright.ScreenshotAnimationsAllow,
 		Scale:      playwright.ScreenshotScaleDevice,
-		Style:      playwright.String(GlobalCss + "\n" + `body{padding: 0;margin: 0;}`),
+		Style:      playwright.String(GlobalCSS + "\n" + `body{padding: 0;margin: 0;}`),
 	}
 )
 
@@ -122,7 +123,7 @@ func WaitImage(page playwright.Page) {
 		_ = playwright.NewPlaywrightAssertions().Locator(locator).ToHaveJSProperty("complete", true)
 		_ = playwright.NewPlaywrightAssertions().Locator(locator).Not().ToHaveJSProperty("naturalWidth", 0)
 	}
-	page.Evaluate(`document.querySelectorAll("*").forEach(e=>{e.scrollLeft = 0;e.scrollTop = 0;})`)
+	_, _ = page.Evaluate(`document.querySelectorAll("*").forEach(e=>{e.scrollLeft = 0;e.scrollTop = 0;})`)
 }
 
 // Clean 清理页面，移除浮动元素等
@@ -166,56 +167,59 @@ else if (location.hostname.search(/xhamster/!=1)){
     document.querySelectorAll('[data-role="promo-messages-wrapper"],nav.top-menu-container,.categories-list .main-categories,.categories-list .sidebar-filter-container,.Cm-vapremium-n-overlay,footer').forEach(e=>e.remove())
     document.querySelectorAll('.login-section,.search-container,.lang-geo-picker-container').forEach(e=>e.remove())
 }`)
-
 }
-func screenShotPage(page playwright.Page, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.PageScreenshotOptions) ([]byte, error) {
+func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
 	Clean(page)
 
-	if Height == 0 {
-		Height = 100
+	if height == 0 {
+		height = 100
 	}
-	err := page.SetViewportSize(Width, Height)
+	err := page.SetViewportSize(width, height)
 	if err != nil {
 		return nil, err
 	}
 	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	Height = evaluated.(int)
-	err = page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	height = evaluated.(int)
+	err = page.SetViewportSize(width, height)
 	if err != nil {
 		return nil, err
 	}
 	WaitImage(page)
-	if Before != nil {
-		Before(page)
+	if before != nil {
+		before(page)
 	}
-	time.Sleep(Sleep)
-	return page.Screenshot(PwOption)
-
+	time.Sleep(sleep)
+	return page.Screenshot(pwOption)
 }
-func screenShotElement(page playwright.Page, selector string, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
+func screenShotElement(page playwright.Page, selector string, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
 	Clean(page)
 
-	if Height == 0 {
-		Height = 100
+	if height == 0 {
+		height = 100
 	}
-	err := page.SetViewportSize(Width, Height)
+	err := page.SetViewportSize(width, height)
 	if err != nil {
 		return nil, err
 	}
 	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	Height = evaluated.(int)
-	err = page.SetViewportSize(Width, Height)
+	if err != nil {
+		return nil, err
+	}
+	height = evaluated.(int)
+	err = page.SetViewportSize(width, height)
 	if err != nil {
 		return nil, err
 	}
 	WaitImage(page)
-	if Before != nil {
-		Before(page)
+	if before != nil {
+		before(page)
 	}
-	time.Sleep(Sleep)
+	time.Sleep(sleep)
 	locator := page.Locator(selector)
-	return locator.Screenshot(PwOption)
-
+	return locator.Screenshot(pwOption)
 }
 
 // ScreenShotPageURL 网址截屏

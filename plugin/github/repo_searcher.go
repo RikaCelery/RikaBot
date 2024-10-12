@@ -76,7 +76,7 @@ func init() { // 插件主体
 					utils.ScreenShotElementOption{Width: 1000,
 						DPI:   1,
 						Sleep: time.Millisecond * 1000, PwOption: playwright.LocatorScreenshotOptions{
-							Style: playwright.String(utils.GlobalCss + "\n" + hiddenCSS),
+							Style: playwright.String(utils.GlobalCSS + "\n" + hiddenCSS),
 						}},
 				)
 				if err != nil {
@@ -104,7 +104,7 @@ func init() { // 插件主体
 					utils.ScreenShotElementOption{Width: 850,
 						DPI:   1,
 						Sleep: time.Millisecond * 1000, PwOption: playwright.LocatorScreenshotOptions{
-							Style: playwright.String(utils.GlobalCss + "\n" + hiddenCSS),
+							Style: playwright.String(utils.GlobalCSS + "\n" + hiddenCSS),
 						}},
 				)
 				if err != nil {

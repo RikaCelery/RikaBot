@@ -341,8 +341,7 @@ func init() {
 	})
 	en.OnMessage(
 		zero.PatternRule(
-			zero.PatternText(".*(?:使用(.*))?jj.*"),
-			zero.PatternAt(),
+			zero.NewPattern().Text(".*(?:使用(.*))?jj.*").At(),
 		), getdb,
 		zero.OnlyGroup).SetBlock(true).Limit(func(ctx *zero.Ctx) *rate.Limiter {
 		lt := jjLimiter.Load(fmt.Sprintf("%d_%d", ctx.Event.GroupID, ctx.Event.UserID))
@@ -363,8 +362,7 @@ func init() {
 	).Handle(func(ctx *zero.Ctx) {
 		matched := &extension.PatternModel{}
 		_ = ctx.Parse(matched)
-		fiancee := matched.Matched[1].AsAt()
-		adduser := fiancee.UID
+		adduser, _ := strconv.ParseInt(matched.Matched[1].GetAt(), 10, 64)
 		uid := ctx.Event.UserID
 		gid := ctx.Event.GroupID
 		t := fmt.Sprintf("%d_%d", gid, uid)
@@ -386,7 +384,7 @@ func init() {
 			jjLimiter.Delete(t)
 			return
 		}
-		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, matched.Matched[0].AsText().Groups[1])
+		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, matched.Matched[0].GetText()[1])
 		if err != nil {
 			ctx.SendChain(message.Text(err))
 			return
@@ -454,7 +452,6 @@ func init() {
 		if err != nil {
 			ctx.SendChain(message.Text("注销失败"))
 			panic(err)
-			return
 		}
 		collectSendFast(ctx, message.At(uid), message.Text("注销成功,你已经没有牛牛了"))
 	})

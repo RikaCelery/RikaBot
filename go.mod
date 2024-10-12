@@ -119,7 +119,9 @@ replace modernc.org/sqlite => github.com/fumiama/sqlite3 v1.29.10-simp
 
 replace modernc.org/libc => github.com/fumiama/libc v0.0.0-20240530081950-6f6d8586b5c5
 
-replace github.com/FloatTech/zbputils => github.com/RikaCelery/zbputils v0.0.0-20241010035941-6440c040a0d6
+replace github.com/FloatTech/zbputils => github.com/RikaCelery/zbputils v0.0.0-20241012015704-89d97ccd632e
+
+//replace github.com/FloatTech/zbputils => /Users/rikahil/GolandProjects/zbputils
 
 replace github.com/FloatTech/floatbox => github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5
 
@@ -127,6 +129,6 @@ replace github.com/FloatTech/floatbox => github.com/RikaCelery/floatbox v0.0.0-2
 
 replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b
 
-replace github.com/wdvxdr1123/ZeroBot => github.com/RikaCelery/ZeroBot v0.0.0-20241010054512-70ac5b7a5ea8
+replace github.com/wdvxdr1123/ZeroBot => github.com/RikaCelery/ZeroBot v0.0.0-20241012014803-18fa039d6c21
 
 //replace github.com/wdvxdr1123/ZeroBot => /Users/rikahil/GolandProjects/ZeroBot
