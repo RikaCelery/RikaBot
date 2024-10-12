@@ -255,7 +255,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	caches[videoURL] = true
 	return nil
 }
-func downloadFileFromURL(fileURL string, oc chan string) error {
+func downloadFileFromURL(fileURL string, fileExt string, oc chan string) error {
 	// 发送HTTP请求下载图片
 	resp, err := http.Get(fileURL)
 	if err != nil {
@@ -266,12 +266,6 @@ func downloadFileFromURL(fileURL string, oc chan string) error {
 
 	buf := make([]byte, 1024*1024)
 	l, _ := resp.Body.Read(buf)
-
-	// 读取前几个字节以确定文件类型
-	fileExt, err := getFileTypeFromBytes(buf[:l])
-	if err != nil {
-		return err
-	}
 
 	// 创建一个 MD5 哈希对象
 	hasher := md5.New()
@@ -497,13 +491,13 @@ create table if not exists file_name_map
 		netURL := ctx.Event.RawEvent.Get("file.url").String()
 		go func() {
 			err := os.Mkdir("filetmp", 0750)
-			if err != nil {
+			if err != nil && !errors.Is(err, os.ErrExist) {
 				logrus.Warningf("[spider] failed to mkdir `filetmp`: %v", err)
 				return
 			}
 			oc := make(chan string, 1)
 			defer close(oc)
-			err = downloadFileFromURL(netURL, oc)
+			err = downloadFileFromURL(netURL, filepath.Ext(netName), oc)
 			if err != nil {
 				logrus.Warningf("[spider] failed to download file: %v", err)
 				return
@@ -761,7 +755,7 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	if len(info.Magnets) != 0 {
 		send += "🧲:\n" + strings.Join(info.Magnets, "\n")
 	}
-	if !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5) {
+	if !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5 || len(info.Magnets) > 0) {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
 	}
 	if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
@@ -834,7 +828,7 @@ sendLinkEnd:
 			go func() {
 				defer wg.Done()
 				err := os.Mkdir("videotmp", 0750)
-				if err != nil {
+				if err != nil && !errors.Is(err, os.ErrExist) {
 					logrus.Infof("[spider] failed to mkdir `videotmp`: %v", err)
 					return
 				}
