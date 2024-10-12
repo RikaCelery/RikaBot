@@ -8,7 +8,7 @@ require (
 	github.com/FloatTech/floatbox v0.0.0-20240505082030-226ec6713e14
 	github.com/FloatTech/gg v1.1.3
 	github.com/FloatTech/imgfactory v0.2.2-0.20230413152719-e101cc3606ef
-	github.com/FloatTech/rendercard v0.1.1
+	github.com/FloatTech/rendercard v0.1.2
 	github.com/FloatTech/sqlite v1.6.3
 	github.com/FloatTech/ttl v0.0.0-20240716161252-965925764562
 	github.com/FloatTech/zbpctrl v1.6.2-0.20240904160347-1317e11a15bb
@@ -39,7 +39,6 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/liuzl/gocc v0.0.0-20231231122217-0372e1059ca5
 	github.com/mattn/go-runewidth v0.0.4
-	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/mroth/weightedrand v1.0.0
 	github.com/notnil/chess v1.9.0
