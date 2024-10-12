@@ -161,7 +161,7 @@ retry:
 	hasher := md5.New()
 
 	// 读取响应体并写入到哈希对象，同时保存到临时文件
-	tempFile, err := os.CreateTemp("tmp", "_downloaded_image_*"+fileExt)
+	tempFile, err := os.CreateTemp("tmp", "_downloaded_image_"+fileExt)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	hasher := md5.New()
 
 	// 读取响应体并写入到哈希对象，同时保存到临时文件
-	tempFile, err := os.CreateTemp("tmp", "_downloaded_video_*"+fileExt)
+	tempFile, err := os.CreateTemp("videotmp", "_downloaded_video_"+fileExt)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	md5Str := hex.EncodeToString(hash)
 
 	// 构建最终文件名
-	finalFileName := filepath.Join("tmp", fmt.Sprintf("%s%s", md5Str, fileExt))
+	finalFileName := filepath.Join("videotmp", fmt.Sprintf("%s%s", md5Str, fileExt))
 	tempFile.Close()
 	// 将临时文件重命名为最终文件
 	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
@@ -253,6 +253,64 @@ func downloadVideoFromURL(videoURL string, oc chan string) error {
 	}
 	logrus.Infoln("[spider] Video saved as:", finalFileName)
 	caches[videoURL] = true
+	return nil
+}
+func downloadFileFromURL(fileURL string, oc chan string) error {
+	// 发送HTTP请求下载图片
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return fmt.Errorf("error downloading video: %v, url=%s", err, fileURL) //nolint:forbidigo
+	}
+	// fmt.Printf("%v\n", resp.Header)
+	defer resp.Body.Close()
+
+	buf := make([]byte, 1024*1024)
+	l, _ := resp.Body.Read(buf)
+
+	// 读取前几个字节以确定文件类型
+	fileExt, err := getFileTypeFromBytes(buf[:l])
+	if err != nil {
+		return err
+	}
+
+	// 创建一个 MD5 哈希对象
+	hasher := md5.New()
+
+	// 读取响应体并写入到哈希对象，同时保存到临时文件
+	tempFile, err := os.CreateTemp("filetmp", "_downloaded_file_"+fileExt)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempFile.Name())
+
+	// 复制响应体到哈希对象和临时文件
+	multiWriter := io.MultiWriter(hasher, tempFile)
+	_, err = multiWriter.Write(buf[:l])
+	if err != nil {
+		logrus.Warnln("[spider] failed to write file:", err)
+		return err
+	}
+	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
+		return err
+	}
+
+	// 计算文件的 MD5 哈希值
+	hash := hasher.Sum(nil)
+	md5Str := hex.EncodeToString(hash)
+
+	// 构建最终文件名
+	finalFileName := filepath.Join("filetmp", fmt.Sprintf("%s%s", md5Str, fileExt))
+	tempFile.Close()
+	// 将临时文件重命名为最终文件
+	if err := os.Rename(tempFile.Name(), finalFileName); err != nil {
+		return err
+	}
+
+	if oc != nil {
+		oc <- finalFileName
+	}
+	logrus.Infoln("[spider] Video saved as:", finalFileName)
+	caches[fileURL] = true
 	return nil
 }
 
@@ -383,6 +441,13 @@ create table if not exists digests
             primary key,
     digest text not null
 );
+create table if not exists file_name_map
+(
+    hash   text not null
+        constraint file_name_map_pk
+            primary key,
+    name text not null
+);
 
 `)
 	if err != nil {
@@ -430,6 +495,25 @@ create table if not exists digests
 	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
 		netName := ctx.Event.RawEvent.Get("file.name").String()
 		netURL := ctx.Event.RawEvent.Get("file.url").String()
+		go func() {
+			err := os.Mkdir("filetmp", 0750)
+			if err != nil {
+				logrus.Warningf("[spider] failed to mkdir `filetmp`: %v", err)
+				return
+			}
+			oc := make(chan string, 1)
+			defer close(oc)
+			err = downloadFileFromURL(netURL, oc)
+			if err != nil {
+				logrus.Warningf("[spider] failed to download file: %v", err)
+				return
+			}
+			_, err = db.DB.Exec(`replace into file_name_map(hash,name) values (?,?)`, <-oc, netName)
+			if err != nil {
+				logrus.Warningf("[spider] failed to insert file: %v", err)
+				return
+			}
+		}()
 		logrus.Infof("[fileStruct] %s %s \n%s", netName, netURL, ctx.Event.RawEvent.String())
 		if strings.HasSuffix(strings.ToLower(netName), ".apk") || strings.HasSuffix(strings.ToLower(netName), ".apk.1") || strings.HasPrefix(strings.ToLower(netName), "base.apk") || strings.HasPrefix(strings.ToLower(netName), "base(1).apk") || strings.HasPrefix(strings.ToLower(netName), "base(2).apk") || strings.HasPrefix(strings.ToLower(netName), "base(3).apk") {
 			err := file.DownloadTo(netURL, netName)
@@ -483,6 +567,7 @@ create table if not exists digests
 				msgs = append(msgs, message.Text("\n图图炸了！"))
 			}
 			ctx.SendGroupMessage(ctx.Event.GroupID, msgs)
+			_ = os.Remove(netName)
 		}
 	})
 }
