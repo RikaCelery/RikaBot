@@ -104,6 +104,9 @@ func init() {
 
 func match(ctx *zero.Ctx) bool {
 	logrus.Debugln("[emojimix] msg:", ctx.Event.Message)
+	if len(ctx.Event.Message) == 0 {
+		return false
+	}
 	if ctx.Event.Message[0].Type == "text" && strings.HasPrefix(ctx.Event.Message[0].Data["text"], zero.BotConfig.CommandPrefix) {
 		ctx.State["emojimix_command"] = true
 		ctx.Event.Message[0].Data["text"] = strings.TrimSpace(ctx.Event.Message[0].Data["text"][1:])
