@@ -35,6 +35,19 @@ type ScreenShotElementOption struct {
 }
 
 var (
+	GlobalCss = `
+#ageDisclaimerMainBG,
+.desktop-dialog-open,
+#modalWrapMTubes {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+body {
+    padding: 0;
+    margin: 0;
+}
+`
 	pw     *playwright.Playwright
 	ctx    playwright.BrowserContext
 	inited = false
@@ -46,7 +59,7 @@ var (
 		Timeout:    playwright.Float(60_000),
 		Animations: playwright.ScreenshotAnimationsAllow,
 		Scale:      playwright.ScreenshotScaleDevice,
-		Style:      playwright.String(`body{padding: 0;margin: 0;}`),
+		Style:      playwright.String(GlobalCss + "\n" + ``),
 	}
 	// DefaultElementOptions 默认元素截屏选项
 	DefaultElementOptions = playwright.LocatorScreenshotOptions{
@@ -55,7 +68,7 @@ var (
 		Timeout:    playwright.Float(60_000),
 		Animations: playwright.ScreenshotAnimationsAllow,
 		Scale:      playwright.ScreenshotScaleDevice,
-		Style:      playwright.String(`body{padding: 0;margin: 0;}`),
+		Style:      playwright.String(GlobalCss + "\n" + `body{padding: 0;margin: 0;}`),
 	}
 )
 
@@ -78,6 +91,12 @@ func init() {
 		ChromiumSandbox:   playwright.Bool(false),
 		AcceptDownloads:   playwright.Bool(false),
 		Headless:          playwright.Bool(true),
+		Proxy: &playwright.Proxy{
+			Server:   "http://localhost:7890",
+			Bypass:   nil,
+			Username: nil,
+			Password: nil,
+		},
 		//ColorScheme:       playwright.ColorSchemeDark,
 	})
 	if err != nil {
@@ -94,12 +113,63 @@ func WaitImage(page playwright.Page) {
 			continue
 		}
 		_ = locator.ScrollIntoViewIfNeeded()
+		_, _ = locator.Evaluate(`(e) => {
+    if (e.offsetParent) {
+        e.offsetParent.scrollLeft = 0;
+        e.offsetParent.scrollTop = 0;
+    }
+}`, nil)
 		_ = playwright.NewPlaywrightAssertions().Locator(locator).ToHaveJSProperty("complete", true)
 		_ = playwright.NewPlaywrightAssertions().Locator(locator).Not().ToHaveJSProperty("naturalWidth", 0)
 	}
+	page.Evaluate(`document.querySelectorAll("*").forEach(e=>{e.scrollLeft = 0;e.scrollTop = 0;})`)
 }
 
+// Clean 清理页面，移除浮动元素等
+func Clean(page playwright.Page) {
+	_, _ = page.Evaluate(`document.classList.remove("xh-thumb-disabled")
+if (location.hostname.search(/pornhub/) !== -1) {
+    document.body.classList.remove("isOpenMTubes")
+    document.querySelectorAll('.emptyBlockSpace,.sniperModeEngaged,#welcome,.wrapper > header,body > div.networkBarWrapper').forEach(e => e.remove())
+    const main = document.querySelector(".wrapper")
+    let el = main.nextElementSibling
+    while (el) {
+        let _el = el.nextElementSibling
+        el.remove()
+        el = _el
+    }
+
+}
+else if (location.hostname.search(/xvideos/!=1)){
+    document.documentElement.classList.remove("img-blured")
+    document.documentElement.classList.remove("disclaimer-opened")
+    document.documentElement.classList.remove("notouch")
+    document.querySelectorAll("#disclaimer_background").forEach(e=>e.remove())
+    document.querySelectorAll(".head__menu-line").forEach(e=>e.remove())
+    document.querySelectorAll("#main .search-premium-tabs").forEach(e=>e.remove())
+    document.querySelectorAll("#cookies-use-alert").forEach(e=>e.remove())
+    document.querySelectorAll("header .head__search").forEach(e=>e.remove())
+    document.querySelectorAll("header #header-mobile-right").forEach(e=>e.remove())
+    document.querySelectorAll(".premium-results-line").forEach(e=>e.remove())
+    document.querySelectorAll("#ad-footer,.remove-ads,#footer").forEach(e=>e.remove())
+    document.querySelectorAll("#content .pagination").forEach(e=>e.remove())
+}
+else if (location.hostname.search(/xhamster/!=1)){
+    document.documentElement.style.setProperty("--top-menu-height",0)
+    document.querySelectorAll("*").forEach(e=>{
+        if(e.classList.toString().search(/cookiesAnnounce-\w+/)!=-1)
+            e.remove()
+    })
+    const inj = document.createElement("style")
+    inj.innerHTML = ".header .search-section{justify-content: center;}"
+    document.head.appendChild(inj)
+    document.querySelectorAll('[data-role="promo-messages-wrapper"],nav.top-menu-container,.categories-list .main-categories,.categories-list .sidebar-filter-container,.Cm-vapremium-n-overlay,footer').forEach(e=>e.remove())
+    document.querySelectorAll('.login-section,.search-container,.lang-geo-picker-container').forEach(e=>e.remove())
+}`)
+
+}
 func screenShotPage(page playwright.Page, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.PageScreenshotOptions) ([]byte, error) {
+	Clean(page)
 
 	if Height == 0 {
 		Height = 100
@@ -123,6 +193,7 @@ func screenShotPage(page playwright.Page, Width, Height int, Sleep time.Duration
 
 }
 func screenShotElement(page playwright.Page, selector string, Width, Height int, Sleep time.Duration, Before func(page playwright.Page), PwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
+	Clean(page)
 
 	if Height == 0 {
 		Height = 100
@@ -179,6 +250,12 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 			ChromiumSandbox:   playwright.Bool(false),
 			AcceptDownloads:   playwright.Bool(false),
 			Headless:          playwright.Bool(true),
+			Proxy: &playwright.Proxy{
+				Server:   "http://localhost:7890",
+				Bypass:   nil,
+				Username: nil,
+				Password: nil,
+			},
 		})
 		if err != nil {
 			return nil, err
@@ -235,6 +312,12 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 			ChromiumSandbox:   playwright.Bool(false),
 			AcceptDownloads:   playwright.Bool(false),
 			Headless:          playwright.Bool(true),
+			Proxy: &playwright.Proxy{
+				Server:   "http://localhost:7890",
+				Bypass:   nil,
+				Username: nil,
+				Password: nil,
+			},
 			//ColorScheme:       playwright.ColorSchemeDark,
 		})
 		if err != nil {
@@ -277,6 +360,12 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 			ChromiumSandbox:   playwright.Bool(false),
 			AcceptDownloads:   playwright.Bool(false),
 			Headless:          playwright.Bool(true),
+			Proxy: &playwright.Proxy{
+				Server:   "http://localhost:7890",
+				Bypass:   nil,
+				Username: nil,
+				Password: nil,
+			},
 			//ColorScheme:       playwright.ColorSchemeDark,
 		})
 		if err != nil {
@@ -313,6 +402,12 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 			ChromiumSandbox:   playwright.Bool(false),
 			AcceptDownloads:   playwright.Bool(false),
 			Headless:          playwright.Bool(true),
+			Proxy: &playwright.Proxy{
+				Server:   "http://localhost:7890",
+				Bypass:   nil,
+				Username: nil,
+				Password: nil,
+			},
 		})
 		if err != nil {
 			return nil, err
