@@ -332,7 +332,7 @@ func main() {
 		rand.Seed(time.Now().UnixNano()) //nolint: staticcheck
 	}
 	if filter != 0 {
-		zero.OnMessage().SetPriority(-99).Handle(func(ctx *zero.Ctx) {
+		zero.OnMessage().SetPriority(-1).Handle(func(ctx *zero.Ctx) {
 			if ctx.Event.GroupID != filter {
 				ctx.Block()
 				return

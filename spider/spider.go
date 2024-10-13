@@ -483,7 +483,7 @@ create table if not exists file_name_map
 		logrus.Infof("[spider] 设置成功, %s => %s", hashStr, digest)
 		ctx.Send("[INFO]:设置成功")
 	})
-	zero.OnMessage().Handle(func(ctx *zero.Ctx) {
+	zero.OnMessage().SetPriority(-3).Handle(func(ctx *zero.Ctx) {
 		handle(db, ctx)
 	})
 	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
