@@ -18,6 +18,7 @@ import (
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/FloatTech/zbputils/img/text"
+	"github.com/go-ego/gse"
 	"github.com/golang/freetype"
 	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -27,11 +28,13 @@ import (
 )
 
 var (
+	seg       = gse.Segmenter{}
 	re        = regexp.MustCompile(`^[一-龥]+$`)
 	stopwords []string
 )
 
 func init() {
+	_ = seg.LoadDictEmbed()
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
 		Brief:            "聊天热词",
@@ -91,22 +94,23 @@ func init() {
 				ctx.SendChain(message.Text(zero.BotConfig.NickName[0], "未加入", group.Name, "(", gid, "),无法获得热词呢"))
 				return
 			}
-			today := time.Now().Format("20060102")
+			today := time.Now().Format("2006010215")
 			drawedFile := fmt.Sprintf("%s%d%s%dwordCount.png", cachePath, gid, today, p)
-			if file.IsExist(drawedFile) {
-				ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
-				return
-			}
+			// if file.IsExist(drawedFile) {
+			//	ctx.SendChain(message.Image(file.BOTPATH + "/" + drawedFile))
+			//	return
+			//}
 			messageMap := make(map[string]int, 256)
 			msghists := make(chan *gjson.Result, 256)
 			go func() {
 				h := ctx.GetLatestGroupMessageHistory(gid)
-				messageSeq := h.Get("messages.0.message_seq").Int()
+				messageSeq := h.Get("messages.0.message_id").Int()
+				logrus.Debugln(messageSeq)
 				msghists <- &h
 				for i := 1; i < int(p/20) && messageSeq != 0; i++ {
 					h := ctx.GetGroupMessageHistory(gid, messageSeq)
 					msghists <- &h
-					messageSeq = h.Get("messages.0.message_seq").Int()
+					messageSeq = h.Get("messages.0.message_id").Int()
 				}
 				close(msghists)
 			}()
@@ -116,12 +120,13 @@ func init() {
 				wg.Add(1)
 				go func(h *gjson.Result) {
 					for _, v := range h.Get("messages.#.message").Array() {
-						tex := strings.TrimSpace(message.ParseMessageFromString(v.Str).ExtractPlainText())
+						tex := strings.TrimSpace(message.ParseMessageFromArray(v).ExtractPlainText())
 						if tex == "" {
 							continue
 						}
-						for _, t := range ctx.GetWordSlices(tex).Get("slices").Array() {
-							tex := strings.TrimSpace(t.Str)
+
+						for _, t := range seg.CutAll(tex) {
+							tex := strings.TrimSpace(t)
 							i := sort.SearchStrings(stopwords, tex)
 							if re.MatchString(tex) && (i >= len(stopwords) || stopwords[i] != tex) {
 								mapmu.Lock()
@@ -175,7 +180,7 @@ func init() {
 				ctx.SendChain(message.Text("ERROR: ", err))
 				return
 			}
-			ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
+			ctx.SendChain(message.Image(file.BOTPATH + "/" + drawedFile))
 		})
 }
 

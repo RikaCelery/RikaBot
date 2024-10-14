@@ -418,7 +418,7 @@ func init() {
 			ctx.SendChain(message.Text("[ERROR]:没有找到图片"))
 			return
 		}
-		var msgs []message.MessageSegment
+		var msgs []message.Segment
 		for _, file := range files {
 			msgs = append(msgs, message.Text(file.PicID))
 			readFile, err := os.ReadFile(file.Path)

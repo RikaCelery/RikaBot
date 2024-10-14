@@ -229,7 +229,7 @@ func init() {
 		return path.Ext(ctx.Event.File.Name) == ".mid"
 	}).SetBlock(false).Limit(ctxext.LimitByGroup).
 		Handle(func(ctx *zero.Ctx) {
-			fileURL := ctx.GetThisGroupFileUrl(ctx.Event.File.BusID, ctx.Event.File.ID)
+			fileURL := ctx.GetThisGroupFileURL(ctx.Event.File.BusID, ctx.Event.File.ID)
 			data, err := web.GetData(fileURL)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))
@@ -255,7 +255,7 @@ func init() {
 		return path.Ext(ctx.Event.File.Name) == ".txt" && strings.Contains(ctx.Event.File.Name, "midi制作")
 	}).SetBlock(false).Limit(ctxext.LimitByGroup).
 		Handle(func(ctx *zero.Ctx) {
-			fileURL := ctx.GetThisGroupFileUrl(ctx.Event.File.BusID, ctx.Event.File.ID)
+			fileURL := ctx.GetThisGroupFileURL(ctx.Event.File.BusID, ctx.Event.File.ID)
 			data, err := web.GetData(fileURL)
 			if err != nil {
 				ctx.SendChain(message.Text("ERROR: ", err))

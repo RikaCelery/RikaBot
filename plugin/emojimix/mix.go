@@ -205,7 +205,7 @@ func mixEmoji(emoji1, emoji2 string, swap bool) string {
 	}
 	return fmt.Sprintf(bed, folder, uslug1, uslug1, uslug2)
 }
-func face2emoji(face message.MessageSegment) string {
+func face2emoji(face message.Segment) string {
 	id, err := strconv.Atoi(face.Data["id"])
 	if err != nil {
 		return ""

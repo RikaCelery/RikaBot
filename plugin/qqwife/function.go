@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/wdvxdr1123/ZeroBot/extension"
+
 	"github.com/FloatTech/zbputils/ctxext"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
@@ -163,16 +165,17 @@ func init() {
 		})
 	// NTR技能
 	engine.OnMessage(
-		zero.PatternRule(zero.NewPattern().Text("^当").At().Text("的?小三")),
+		zero.NewPattern().Text("^当").At().Text("的?小三").AsRule(),
 		zero.OnlyGroup,
 		getdb,
 		checkMistress,
 	).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
+			model := extension.PatternModel{}
+			_ = ctx.Parse(&model)
 			gid := ctx.Event.GroupID
 			uid := ctx.Event.UserID
-			fid := ctx.State[zero.KEY_PATTERN].([]interface{})
-			fiancee, _ := strconv.ParseInt(fid[1].(string), 10, 64)
+			fiancee, _ := strconv.ParseInt(model.Matched[1].At(), 10, 64)
 			// 写入CD
 			err := 民政局.记录CD(gid, uid, "NTR")
 			if err != nil {
@@ -484,9 +487,11 @@ func checkSingleDog(ctx *zero.Ctx) bool {
 
 // 注入判断 是否满足小三要求
 func checkMistress(ctx *zero.Ctx) bool {
+	model := extension.PatternModel{}
+	_ = ctx.Parse(&model)
 	gid := ctx.Event.GroupID
 	uid := ctx.Event.UserID
-	fiancee, err := strconv.ParseInt(ctx.State[zero.KEY_PATTERN].([]interface{})[1].(string), 10, 64)
+	fiancee, err := strconv.ParseInt(model.Matched[1].At(), 10, 64)
 	if err != nil {
 		ctx.SendChain(message.Text("额,你的target好像不存在?"))
 		return false

@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/FloatTech/AnimeAPI/pixiv"
-	"github.com/FloatTech/zbputils/img/pool"
 
 	"github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"

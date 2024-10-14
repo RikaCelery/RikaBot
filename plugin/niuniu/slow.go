@@ -12,7 +12,7 @@ import (
 var slowsenders = syncx.Map[int64, *syncx.Lazy[*slowdo.Job[*zero.Ctx, message.Message]]]{}
 var slowsendersfast = syncx.Map[int64, *syncx.Lazy[*slowdo.Job[*zero.Ctx, message.Message]]]{}
 
-func collectSendFast(ctx *zero.Ctx, msgs ...message.MessageSegment) {
+func collectSendFast(ctx *zero.Ctx, msgs ...message.Segment) {
 	id := ctx.Event.GroupID
 	if id == 0 {
 		// only support group
@@ -39,7 +39,7 @@ func collectSendFast(ctx *zero.Ctx, msgs ...message.MessageSegment) {
 	job := lazy.Get()
 	job.Add(msgs)
 }
-func collectsend(ctx *zero.Ctx, msgs ...message.MessageSegment) {
+func collectsend(ctx *zero.Ctx, msgs ...message.Segment) {
 	id := ctx.Event.GroupID
 	if id == 0 {
 		// only support group

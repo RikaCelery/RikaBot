@@ -339,9 +339,8 @@ func init() {
 			message.Text("注册成功,你的牛牛现在有", u.Length, "cm"))
 	})
 	en.OnMessage(
-		zero.PatternRule(
-			zero.NewPattern().Text(".*(?:使用(.*))?jj.*").At(),
-		), getdb,
+		zero.NewPattern().Text(".*(?:使用(.*))?jj.*").At().AsRule(),
+		getdb,
 		zero.OnlyGroup).SetBlock(true).Limit(func(ctx *zero.Ctx) *rate.Limiter {
 		lt := jjLimiter.Load(fmt.Sprintf("%d_%d", ctx.Event.GroupID, ctx.Event.UserID))
 		ctx.State["jj_last_touch"] = lt.LastTouch()
@@ -361,7 +360,7 @@ func init() {
 	).Handle(func(ctx *zero.Ctx) {
 		matched := &extension.PatternModel{}
 		_ = ctx.Parse(matched)
-		adduser, _ := strconv.ParseInt(matched.Matched[1].GetAt(), 10, 64)
+		adduser, _ := strconv.ParseInt(matched.Matched[1].At(), 10, 64)
 		uid := ctx.Event.UserID
 		gid := ctx.Event.GroupID
 		t := fmt.Sprintf("%d_%d", gid, uid)
@@ -383,7 +382,7 @@ func init() {
 			jjLimiter.Delete(t)
 			return
 		}
-		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, matched.Matched[0].GetText()[1])
+		fencingResult, err := myniuniu.processJJuAction(&adduserniuniu, t, matched.Matched[0].Text()[1])
 		if err != nil {
 			ctx.SendChain(message.Text(err))
 			return

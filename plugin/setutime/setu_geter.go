@@ -28,7 +28,7 @@ type imgpool struct {
 	dbmu   sync.RWMutex
 	path   string
 	max    int
-	pool   map[string][]*message.MessageSegment
+	pool   map[string][]*message.Segment
 	poolmu sync.Mutex
 }
 
@@ -47,7 +47,7 @@ var pool = &imgpool{
 	db:   &sql.Sqlite{},
 	path: pixiv.CacheDir,
 	max:  10,
-	pool: make(map[string][]*message.MessageSegment),
+	pool: make(map[string][]*message.Segment),
 }
 
 func init() { // 插件主体
@@ -157,7 +157,7 @@ func (p *imgpool) push(ctx *zero.Ctx, imgtype string, illust *pixiv.Illust) {
 	if len(illust.ImageUrls) == 0 {
 		return
 	}
-	var msg message.MessageSegment
+	var msg message.Segment
 	f := fileutil.BOTPATH + "/" + illust.Path(0)
 	if fileutil.IsNotExist(f) {
 		// 下载图片
@@ -172,7 +172,7 @@ func (p *imgpool) push(ctx *zero.Ctx, imgtype string, illust *pixiv.Illust) {
 	p.poolmu.Unlock()
 }
 
-func (p *imgpool) pop(imgtype string) (msg *message.MessageSegment) {
+func (p *imgpool) pop(imgtype string) (msg *message.Segment) {
 	p.poolmu.Lock()
 	defer p.poolmu.Unlock()
 	if p.size(imgtype) == 0 {

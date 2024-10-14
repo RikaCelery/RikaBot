@@ -29,7 +29,7 @@ type Clock struct {
 
 var (
 	// @全体成员
-	atall = message.MessageSegment{
+	atall = message.Segment{
 		Type: "at",
 		Data: map[string]string{
 			"qq": "all",

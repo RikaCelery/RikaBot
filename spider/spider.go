@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -461,7 +460,7 @@ create table if not exists file_name_map
 		digest := strings.TrimSpace(plainText[len(zero.BotConfig.CommandPrefix+"digest"):])
 		messageID := replyRegExp.FindStringSubmatch(ctx.MessageString())[1]
 		msg := ctx.GetMessage(messageID)
-		if msg.MessageId.ID() == 0 {
+		if msg.MessageID.ID() == 0 {
 			ctx.Send("[ERROR]:id为0，未找到消息")
 			return
 		}
@@ -543,7 +542,7 @@ create table if not exists file_name_map
 			if err == nil {
 				fileSize = humanize.BigIBytes(big.NewInt(stat.Size()))
 			}
-			var msgs message.Message = []message.MessageSegment{
+			var msgs message.Message = []message.Segment{
 				message.Text(fmt.Sprintf(
 					"安装包:\n%s\n包名:\n%s\n版本名称:%s\n版本号:%d\nSDK:[%d,%d(target)]\nSize:%s",
 					cn,
@@ -826,38 +825,22 @@ sendLinkEnd:
 			video := video
 			wg.Add(1)
 			go func() {
-				defer wg.Done()
+				defer func() {
+					wg.Done()
+					if r := recover(); r != nil {
+						logrus.Warnln("[spider] panic:", r)
+					}
+				}()
 				err := os.Mkdir("videotmp", 0750)
 				if err != nil && !errors.Is(err, os.ErrExist) {
 					logrus.Infof("[spider] failed to mkdir `videotmp`: %v", err)
 					return
 				}
-				fname := path.Join("videotmp", video.Path)
-				if _, err := os.Stat(fname); err == nil {
-					logrus.Infoln("[spider] exist", video)
-					return
-				}
-
-				resp, err2 := client.Get(video.URL)
-				if err2 != nil {
-					resp.Body.Close()
-					logrus.Warnln("[spider] ", err2)
-					return
-				}
-				logrus.Infoln("[spider] download", video)
-				openFile, err2 := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY, 0644)
-				if err2 != nil {
-					return
-				}
-				_, err = io.Copy(openFile, resp.Body)
+				err = downloadVideoFromURL(video.URL, nil)
 				if err != nil {
-					openFile.Close()
-					os.Remove(fname)
-					logrus.Warnln("[spider] download Failed", video)
+					logrus.Warnln("[spider] download Failed", video, err.Error())
 					return
 				}
-				openFile.Close()
-				logrus.Infoln("[spider] download OK", video)
 			}()
 		}
 	}

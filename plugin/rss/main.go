@@ -538,13 +538,13 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 		}
 		logrus.Infoln("render image success")
 
-		return []message.MessageSegment{
+		return []message.Segment{
 			message.ImageBytes(imageBytes), message.Text(strings.Trim(fmt.Sprintf("#%s\n%s\n%s", feed.Title, item.Link, strings.Join(item.Categories, ", ")), " \n\r")),
 		}, nil
 	case 2:
-		return []message.MessageSegment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}, nil
+		return []message.Segment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}, nil
 	case 3:
-		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
+		var msgs = []message.Segment{message.Text("#"+feed.Title, "\n#", utils.Truncate(item.Title, 80), "\n", strings.Join(item.Categories, ", "), "\n", item.Link)}
 		var links = []string{}
 		if item.Image != nil {
 			msgs = append(msgs, message.Image(item.Image.URL))
@@ -566,7 +566,7 @@ func renderRssToMessage(db *sql.Sqlite, renderType int, item *gofeed.Item, feed 
 		} else {
 			desc = strings.Trim(reader.Text(), " \n\r")
 		}
-		var msgs = []message.MessageSegment{message.Text("#"+feed.Title, "\n#", item.Title, "\n", strings.Join(item.Categories, ", "), "\n", item.Link, "\n", desc)}
+		var msgs = []message.Segment{message.Text("#"+feed.Title, "\n#", item.Title, "\n", strings.Join(item.Categories, ", "), "\n", item.Link, "\n", desc)}
 		var links = []string{}
 		if item.Image != nil {
 			msgs = append(msgs, message.Image(item.Image.URL))

@@ -79,11 +79,11 @@ func init() {
 	if err != nil {
 		err := playwright.Install()
 		if err != nil {
-			return
+			panic(err)
 		}
 		pw, err = playwright.Run()
 		if err != nil {
-			return
+			panic(err)
 		}
 	}
 
@@ -101,7 +101,7 @@ func init() {
 		//ColorScheme:       playwright.ColorSchemeDark,
 	})
 	if err != nil {
-		return
+		panic(err)
 	}
 	inited = true
 }
