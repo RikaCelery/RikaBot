@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/FloatTech/zbputils/control"
+
 	"github.com/FloatTech/floatbox/file"
 	sqlite "github.com/FloatTech/sqlite"
 	"github.com/corona10/goimagehash"
@@ -447,7 +449,7 @@ create table if not exists file_name_map
 		panic(err)
 	}
 	replyRegExp := regexp.MustCompile(`\[CQ:reply,id=(-?\d+)].*`)
-	zero.OnMessage(zero.SuperUserPermission).Handle(func(ctx *zero.Ctx) {
+	((*control.Matcher)(zero.OnMessage(zero.SuperUserPermission)).SetName("spider.set_summary")).Handle(func(ctx *zero.Ctx) {
 		plainText := strings.TrimSpace(ctx.ExtractPlainText())
 		logrus.Debugf("[spider] msg %s", plainText)
 		if !strings.HasPrefix(plainText, zero.BotConfig.CommandPrefix+"digest") {
@@ -482,7 +484,7 @@ create table if not exists file_name_map
 		logrus.Infof("[spider] 设置成功, %s => %s", hashStr, digest)
 		ctx.Send("[INFO]:设置成功")
 	})
-	zero.OnMessage().SetPriority(-3).Handle(func(ctx *zero.Ctx) {
+	((*control.Matcher)(zero.OnMessage().SetPriority(-3)).SetName("spider.spider")).Handle(func(ctx *zero.Ctx) {
 		handle(db, ctx)
 	})
 	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
