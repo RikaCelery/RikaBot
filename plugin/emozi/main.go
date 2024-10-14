@@ -19,7 +19,7 @@ func init() {
 	en := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
 		Brief:             "颜文字抽象转写",
-		Help:              "- 抽象转写[文段]\n- 抽象还原[文段]\n- 抽象登录[用户名]",
+		Help:              "- 抽象转写[文段]\n- 抽象还原[文段]\n- 抽象登录[用户名] (去https://emozi.seku.su注册)",
 		PrivateDataFolder: "emozi",
 	})
 	usr := emozi.Anonymous()
