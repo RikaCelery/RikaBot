@@ -119,7 +119,9 @@ replace modernc.org/sqlite => github.com/fumiama/sqlite3 v1.29.10-simp
 
 replace modernc.org/libc => github.com/fumiama/libc v0.0.0-20240530081950-6f6d8586b5c5
 
-replace github.com/FloatTech/zbputils => github.com/RikaCelery/zbputils v0.0.0-20241014020917-40b38204d2f4
+replace github.com/FloatTech/zbputils => github.com/RikaCelery/zbputils v0.0.0-20241015041526-cf33c8fe01e2
+
+replace github.com/FloatTech/rendercard => github.com/RikaCelery/rendercard v0.0.0-20241015040459-3099f1c5d604
 
 //replace github.com/FloatTech/zbputils => /Users/rikahil/GolandProjects/zbputils
 
