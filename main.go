@@ -122,6 +122,28 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/robbery"          // 打劫群友的ATRI币
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/rss"              // RSS订阅
 
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/runcode"     // 在线运行代码
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/saucenao"    // 以图搜图
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/score"       // 分数
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/setutime"    // 来份涩图
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/shadiao"     // 沙雕app
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/shindan"     // 测定
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/steam"       // steam相关
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/tarot"       // 抽塔罗牌
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/tiangou"     // 舔狗日记
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/tracemoe"    // 搜番
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/translation" // 翻译
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wallet"      // 钱包
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wantquotes"  // 据意查句
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/warframeapi" // warframeAPI插件
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wenxinvilg"  // 百度文心AI画图
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wife"        // 抽老婆
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wordcount"   // 聊天热词
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/wordle"      // 猜单词
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ygo"         // 游戏王相关插件
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ymgal"       // 月幕galgame
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/yujn"
+
 	// _ "github.com/FloatTech/ZeroBot-Plugin/plugin/wtf"           // 鬼东西
 	//
 	////                               ^^^^                               //
