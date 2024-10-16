@@ -40,17 +40,6 @@ func init() {
 		info := model.Matched[0].Text()[1]
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getPersentUserinfo+" "+info+"了"+getUserInfo))
 	})
-	engine.OnMessage(zero.NewPattern().At().Text(`^/(.+)$`).AsRule()).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		model := extension.PatternModel{}
-		_ = ctx.Parse(&model)
-		// use matchedinfo
-		qidToInt64, _ := strconv.ParseInt(model.Matched[0].At(), 10, 64)
-		getUserInfo := ctx.CardOrNickName(qidToInt64)
-		getPersentUserinfo := ctx.CardOrNickName(ctx.Event.UserID)
-		// split info
-		info := model.Matched[1].Text()[1]
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getPersentUserinfo+" "+info+"了 "+getUserInfo))
-	})
 
 	engine.OnMessage(zero.NewPattern().Text(`^/(.*)$`).AsRule(), func(ctx *zero.Ctx) bool {
 		model := extension.PatternModel{}
