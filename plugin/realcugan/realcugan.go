@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	realcuganRepo = "shichen1231/Real-CUGAN"
+	realcuganRepo = "celery1806/Real-CUGAN"
 )
 
 func init() { // 插件主体
