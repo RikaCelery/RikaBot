@@ -1,6 +1,11 @@
 // Package emojimix 合成emoji
 package emojimix
 
+var replaces = map[string]string{
+	"1f4f7": "1f4f8", // 📷=>📸
+
+}
+
 // dumped from emojimix
 var emojis = map[string]string{
 	"u1f604":                    "20201001",

@@ -188,7 +188,11 @@ func emojiToHashSlug(emoji string) (hashSlug string, err error) {
 			buf.WriteString("-")
 		}
 	}
-	return buf.String(), nil
+	slug := buf.String()
+	if _, ok := replaces[slug]; ok {
+		return replaces[slug], nil
+	}
+	return slug, nil
 }
 func emojiHashToWebpURL(hashSlug string) string {
 	return fmt.Sprintf(animated, strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(hashSlug, "-ufe0f", ""), "u", ""), "-", "_"))
