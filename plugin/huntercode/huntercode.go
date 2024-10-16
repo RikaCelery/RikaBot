@@ -212,6 +212,8 @@ func listCodes(ctx *zero.Ctx) {
 		ctx.SendChain(message.Text("ERROR: 无法删除旧集会码,", err))
 	}
 	switch ctx.State["command"].(string) {
+	case "世界":
+		fallthrough
 	case "世界集会码":
 		codes := findFor(ctx.Event.GroupID, "世界")
 		if len(codes) > 0 {
@@ -231,6 +233,8 @@ func listCodes(ctx *zero.Ctx) {
 		} else {
 			ctx.SendChain(message.Text("世界集会码：无"))
 		}
+	case "崛起":
+		fallthrough
 	case "崛起集会码":
 		codes := findFor(ctx.Event.GroupID, "崛起")
 		if len(codes) > 0 {
