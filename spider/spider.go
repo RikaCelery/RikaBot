@@ -198,7 +198,6 @@ retry:
 	caches[imageURL] = true
 	return nil
 }
-
 func downloadVideoFromURL(videoURL string, oc chan string) error {
 	// 发送HTTP请求下载图片
 	resp, err := http.Get(videoURL)
@@ -306,6 +305,48 @@ func downloadFileFromURL(fileURL string, fileExt string, oc chan string) error {
 		oc <- finalFileName
 	}
 	logrus.Infoln("[spider] Video saved as:", finalFileName)
+	caches[fileURL] = true
+	return nil
+}
+func downloadGroupFileFromURL(fileURL string, dest string) error {
+	// 发送HTTP请求下载图片
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return fmt.Errorf("error downloading group file: %v, url=%s", err, fileURL) //nolint:forbidigo
+	}
+	// fmt.Printf("%v\n", resp.Header)
+	defer resp.Body.Close()
+
+	buf := make([]byte, 1024*1024)
+	l, _ := resp.Body.Read(buf)
+
+	// 读取响应体并写入到哈希对象，同时保存到临时文件
+	tempFile, err := os.CreateTemp("gpfile", "_downloaded_file_")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempFile.Name())
+
+	// 复制响应体到哈希对象和临时文件
+	multiWriter := tempFile
+	_, err = multiWriter.Write(buf[:l])
+	if err != nil {
+		logrus.Warnln("[spider] failed to write file:", err)
+		return err
+	}
+	if _, err := io.Copy(multiWriter, resp.Body); err != nil {
+		return err
+	}
+
+	tempFile.Close()
+	// 将临时文件重命名为最终文件
+	dir, _ := filepath.Split(dest)
+	if !utils.Exists(dir) {
+		os.MkdirAll(dir, 0755)
+	}
+	if err := os.Rename(tempFile.Name(), dest); err != nil {
+		return err
+	}
 	caches[fileURL] = true
 	return nil
 }
@@ -569,6 +610,155 @@ create table if not exists file_name_map
 			_ = os.Remove(netName)
 		}
 	})
+
+	zero.OnCommand("download", zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
+
+		if len(args) == 0 {
+			for _, result := range ctx.GetGroupList().Array() {
+				println(result.String())
+				args = append(args, result.Get("group_id").String())
+			}
+		}
+		send := ""
+		gps := make([]int64, 0)
+		for _, arg := range args {
+			groupID, _ := strconv.ParseInt(arg, 10, 64)
+			gps = append(gps, groupID)
+			if ctx.GetGroupInfo(groupID, false).ID == 0 {
+				send += fmt.Sprintf("%d 不存在\n", groupID)
+			}
+		}
+		if send != "" {
+			ctx.SendChain(message.Text(send))
+			return false
+		}
+		ctx.State["groups"] = gps
+		return true
+	}), zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		gps := ctx.State["groups"].([]int64)
+		for _, gp := range gps {
+			downloadGroup(ctx, gp)
+		}
+	}).NoTimeout = true
+}
+
+type vfile struct {
+	GID          int64
+	RemotePath   string
+	Uploader     int64
+	UploaderName string
+	UploadTime   int64
+	FileSize     int64
+	Busid        int64
+	ID           string
+}
+
+func (v vfile) UName() string {
+	dir, fname := filepath.Split(v.RemotePath)
+	fname = fmt.Sprintf("%s_%s", strconv.FormatInt(v.UploadTime, 10), fname)
+	return filepath.Join(strconv.FormatInt(v.GID, 10), dir, fname)
+}
+func (v vfile) Download(ctx *zero.Ctx) (string, error) {
+	logrus.Infof("[spider] download %d %d %s => %s", v.GID, v.Busid, v.ID, v.UName())
+	fileURL := ctx.GetGroupFileURL(v.GID, v.Busid, v.ID)
+	if fileURL == "" {
+		return "", errors.New("failed to get group file url")
+	}
+	dest := filepath.Join("gpfile", v.UName())
+	if utils.Exists(dest) {
+		return dest, nil
+	}
+	err := downloadGroupFileFromURL(fileURL, dest)
+	if err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+func (v vfile) DownloadURL(ctx *zero.Ctx) string {
+	return ctx.GetGroupFileURL(v.GID, v.Busid, v.ID)
+}
+func downloadGroup(ctx *zero.Ctx, gp int64) {
+	ret := ctx.GetGroupRootFiles(gp)
+	downloadQueue := make([]vfile, 0)
+	files := ret.Get("files").Array()
+	for _, result := range files {
+		downloadQueue = append(downloadQueue, vfile{
+			GID:          gp,
+			RemotePath:   result.Get("file_name").Str,
+			Uploader:     result.Get("uploader").Int(),
+			UploaderName: result.Get("uploader_name").Str,
+			UploadTime:   result.Get("upload_time").Int(),
+			FileSize:     result.Get("file_size").Int(),
+			Busid:        result.Get("busid").Int(),
+			ID:           result.Get("file_id").String(),
+		})
+	}
+	folders := ret.Get("folders").Array()
+	R := utils.ParallelMap(folders, 8, func(folder gjson.Result) ([]vfile, error) {
+		files := ctx.GetGroupFilesByFolder(gp, folder.Get("folder_id").String()).Get("files").Array()
+		downloadQueue := make([]vfile, 0)
+		for _, result := range files {
+			downloadQueue = append(downloadQueue, vfile{
+				GID:          gp,
+				RemotePath:   filepath.Join(folder.Get("folder_name").String(), result.Get("file_name").Str),
+				Uploader:     result.Get("uploader").Int(),
+				UploaderName: result.Get("uploader_name").Str,
+				UploadTime:   result.Get("upload_time").Int(),
+				FileSize:     result.Get("file_size").Int(),
+				Busid:        result.Get("busid").Int(),
+				ID:           result.Get("file_id").String(),
+			})
+		}
+		return downloadQueue, nil
+	})
+	for _, folder := range R {
+		if folder.Err != nil {
+			logrus.Errorf("error")
+			continue
+		}
+		for _, v := range *folder.Ret {
+			downloadQueue = append(downloadQueue, v)
+		}
+
+	}
+	if !utils.Exists("gpfile/ok") {
+		os.MkdirAll("gpfile/ok", 0777)
+	}
+	ctx.Send(fmt.Sprintf("准备下载，共%d", len(downloadQueue)))
+	join := make([]map[string]string, 0)
+	for i, v := range downloadQueue {
+		join = append(join, map[string]string{
+			"URL":  v.DownloadURL(ctx),
+			"path": v.UName(),
+		})
+		if (i+1)%32 == 0 {
+			j, _ := json.Marshal(join)
+			join = make([]map[string]string, 0)
+			http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+		}
+	}
+	j, _ := json.Marshal(join)
+	http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+	//utils.ParallelMap(downloadQueue, 8, func(v vfile) (string, error) {
+	//	path := fmt.Sprintf("gpfile/ok/%s", v.UName())
+	//	dir, _ := filepath.Split(path)
+	//	if !utils.Exists(dir) {
+	//		os.MkdirAll(dir, 0777)
+	//	}
+	//	if utils.Exists(path) {
+	//		os.Create(path)
+	//		return path, nil
+	//	}
+	//	_, err := v.Download(ctx)
+	//	if err != nil {
+	//		logrus.Errorln(err)
+	//		return path, nil
+	//	}
+	//	os.Create(path)
+	//	return path, nil
+	//})
+	ctx.Send(fmt.Sprintf("下载成功，共%d", len(downloadQueue)))
 }
 
 func (f *fileStruct) getHash(download bool) string {
