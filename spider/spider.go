@@ -17,10 +17,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/FloatTech/zbputils/control"
@@ -133,6 +131,9 @@ retry:
 	// 发送HTTP请求下载图片
 	resp, err := client.Get(imageURL)
 	if err != nil {
+		if errors.Is(err, http.ErrHandlerTimeout) {
+			goto retry
+		}
 		return err
 	}
 	// fmt.Printf("%v\n", resp.Header)
@@ -351,7 +352,7 @@ func storeImageHashToDB(u, path, phash, hash string) error {
 	})
 	return err
 }
-func getImageHashFromFile(filename string) (string, string, error) {
+func getImageHashFromFile(filename string) (phash string, md5hash string, err error) {
 	readFile, err := os.ReadFile(filename)
 	if err != nil {
 		return "", "", err
@@ -360,14 +361,14 @@ func getImageHashFromFile(filename string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	phash, err := goimagehash.PerceptionHash(img)
+	phash_, err := goimagehash.PerceptionHash(img)
 	if err != nil {
 		return "", "", err
 	}
 	sum := md5.New()
 	sum.Write(readFile)
-	md5hash := hex.EncodeToString(sum.Sum(nil))
-	return fmt.Sprintf("%016x", phash.GetHash()), md5hash, nil
+	md5hash = hex.EncodeToString(sum.Sum(nil))
+	return fmt.Sprintf("%016x", phash_.GetHash()), md5hash, nil
 }
 
 //nolint:unparam
@@ -484,7 +485,10 @@ create table if not exists file_name_map
 		logrus.Infof("[spider] 设置成功, %s => %s", hashStr, digest)
 		ctx.Send("[INFO]:设置成功")
 	})
-	((*control.Matcher)(zero.OnMessage().SetPriority(-3)).SetName("spider.spider")).Handle(func(ctx *zero.Ctx) {
+	onMessage := zero.OnMessage()
+	onMessage.NoTimeout = true
+	((*control.Matcher)(onMessage.SetPriority(-3)).SetName("spider.spider")).Handle(func(ctx *zero.Ctx) {
+		preprocess(ctx)
 		handle(db, ctx)
 	})
 	zero.On("notice/group_upload").Handle(func(ctx *zero.Ctx) {
@@ -566,6 +570,7 @@ create table if not exists file_name_map
 		}
 	})
 }
+
 func (f *fileStruct) getHash(download bool) string {
 	switch {
 	case f.ImageSize != 0:
@@ -597,7 +602,8 @@ func (f *fileStruct) getHash(download bool) string {
 	case f.VideoHash != "":
 		return f.Identity()
 	default:
-		panic("both image size and video hash is empty")
+		logrus.Warnf("both image size and video hash is empty")
+		return "[error]"
 	}
 }
 func hashForward(textContent string, fInfo *forwardInfo, download bool) string {
@@ -638,71 +644,47 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	var links []string
 	var magnets []string
 	var textContent = ""
-	res := gjson.ParseBytes(ctx.Event.NativeMessage)
-	var forwardMsg = false
+	var _, forwardMsg = ctx.State["forward_id"]
+	if forwardMsg {
+		textContent = ctx.State["forward_id"].(string)
+	}
 	var forwardID string
-
-	for _, result := range res.Array() {
-		msgType := result.Get("type").String()
+	processed := ctx.State["DATA"].(utils.Mapped[message.Segment])
+	for _, msg := range processed {
+		if msg.Err != nil {
+			logrus.Errorf("[spider] error: %s", msg.Err)
+			continue
+		}
+		msgType := msg.Ret.Type
 		switch msgType {
 		case "forward":
-			forwardMsg = true
-			forwardID = result.Get("data.id").String()
-			parse(result.Get("data.json"),
-				[]string{
-					"TextEntity",
-					"ImageEntity",
-					"VideoEntity",
-				}, func(res gjson.Result) {
-					switch res.Get("type").String() {
-					case "TextEntity":
-						s := res.Get("Text").String()
-						textContent += s
-						var urlRegexp = regexp.MustCompile(`https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)`)
-						allString := urlRegexp.FindAllString(s, -1)
-						links = append(links, allString...)
-						var magnetRegexp = regexp.MustCompile(`([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})`)
-						allString = magnetRegexp.FindAllString(s, -1)
-						for _, s2 := range allString {
-							magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
-						}
-					case "ImageEntity":
-						s, _ := url.Parse(res.Get("ImageUrl").String())
-						values := s.Query()
-						values.Set("appid", "1407")
-						s.RawQuery = values.Encode()
-						images = append(images,
-							fileStruct{
-								Path:      res.Get("FilePath").String(),
-								URL:       s.String(),
-								ImageSize: res.Get("ImageSize").Int(),
-							})
-					default:
-						videos = append(videos,
-							fileStruct{
-								Path: res.Get("FilePath").String(),
-								URL:  res.Get("VideoUrl").String(),
-							})
-					}
-				})
 		case "text":
-			textContent += result.Get("data.text").String()
-			continue
+			s := msg.Ret.Data["text"]
+			textContent += s
+			var urlRegexp = regexp.MustCompile(`https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)`)
+			allString := urlRegexp.FindAllString(s, -1)
+			links = append(links, allString...)
+			var magnetRegexp = regexp.MustCompile(`([0-9a-zA-Z]{40}|[0-9a-zA-Z]{32})`)
+			allString = magnetRegexp.FindAllString(s, -1)
+			for _, s2 := range allString {
+				magnets = append(magnets, fmt.Sprintf("magnet:?xt=urn:btih:%s", s2))
+			}
 		case "image":
-			u := result.Get("data.url").String()
-			err := downloadImageFromURL(u, nil)
-			if err != nil {
-				logrus.Errorf("[spider] image downlaod failed: %v", err.Error())
-				continue
-			}
+			images = append(images,
+				fileStruct{
+					Path: msg.Ret.Data["filename"],
+					URL:  msg.Ret.Data["url"],
+					//ImageSize: 10,
+					VideoHash: msg.Ret.Data["phash"],
+					//ImageSize: result.Get("data.ImageSize").Int(),
+				})
 		case "video":
-			u := result.Get("data.url").String()
-			err := downloadVideoFromURL(u, nil)
-			if err != nil {
-				logrus.Errorf("[spider] video download filed: %v", err.Error())
-				continue
-			}
-			continue
+			videos = append(videos,
+				fileStruct{
+					Path: msg.Ret.Data["url"],
+					URL:  msg.Ret.Data["url"],
+				})
+
 		case "reply":
 		case "at":
 
@@ -711,10 +693,12 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 			continue
 		}
 	}
+
 	images = removeDuplicatesFile(images)
 	videos = removeDuplicatesFile(videos)
 	links = removeDuplicates(links)
 	magnets = removeDuplicates(magnets)
+
 	var send = ""
 	var forwardHash = ""
 	info := &forwardInfo{
@@ -756,94 +740,50 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	if len(info.Magnets) != 0 {
 		send += "🧲:\n" + strings.Join(info.Magnets, "\n")
 	}
-	if !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5 || len(info.Magnets) > 0) {
+	if forwardMsg && !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5 || len(info.Magnets) > 0) {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
 	}
 	if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
 		return
 	}
-
 	marshal, _ := json.Marshal(info)
-	var r row
-	err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.ID))
-	if err == nil {
-		err := db.Del("infos", fmt.Sprintf("where ID=%d", info.ID))
+
+	if forwardMsg {
+		var r row
+		err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.ID))
+		if err == nil {
+			err := db.Del("infos", fmt.Sprintf("where ID=%d", info.ID))
+			if err != nil {
+				logrus.Errorf("[spider] del failed %v", err)
+				return
+			}
+		}
+		err = db.Insert("infos", &row{
+			ID:   info.ID,
+			Name: string(marshal),
+		})
 		if err != nil {
-			logrus.Errorf("[spider] del failed %v", err)
+			logrus.Errorf("[spider] insert failed %v", err)
 			return
 		}
 	}
-	err = db.Insert("infos", &row{
-		ID:   info.ID,
-		Name: string(marshal),
-	})
-	if err != nil {
-		logrus.Errorf("[spider] insert failed %v", err)
-		return
-	}
-	// download
-	if len(info.Links) == 0 {
-		goto sendLinkEnd
-	}
-sendLinkEnd:
-	var oc = make(chan string, len(info.Images))
-	if len(info.Images) != 0 {
-		// client := http.Client{}
-		var wg = sync.WaitGroup{}
-		var imgFiles []string
-		for _, img := range info.Images {
-			wg.Add(1)
-			img := img
-			go func() {
-				defer func() {
-					wg.Done()
-					if r := recover(); r != nil {
-						logrus.Warnln("[spider] panic:", r)
-					}
-				}()
-				err := downloadImageFromURL(img.URL, oc)
-				if err != nil {
-					logrus.Warnln("[spider] download Failed", img, err.Error())
-					return
-				}
-			}()
+	if !forwardMsg && len(magnets) > 0 {
+		var r row
+		err := db.Find("infos", &r, fmt.Sprintf("where ID=%d", info.ID))
+		if err == nil {
+			err := db.Del("infos", fmt.Sprintf("where ID=%d", info.ID))
+			if err != nil {
+				logrus.Errorf("[spider] del failed %v", err)
+				return
+			}
 		}
-		wg.Wait()
-		close(oc)
-		imgFiles = make([]string, 0)
-		for s := range oc {
-			imgFiles = append(imgFiles, s)
-		}
-		imgFiles = removeDuplicates(imgFiles)
-		if len(imgFiles) == 0 {
-			logrus.Warn("[spider] No imgs.")
+		err = db.Insert("infos", &row{
+			ID:   info.ID,
+			Name: string(marshal),
+		})
+		if err != nil {
+			logrus.Errorf("[spider] insert failed %v", err)
 			return
-		}
-		sort.Strings(imgFiles)
-	}
-	{
-		var wg = sync.WaitGroup{}
-		for _, video := range info.Videos {
-			video := video
-			wg.Add(1)
-			go func() {
-				defer func() {
-					wg.Done()
-					if r := recover(); r != nil {
-						logrus.Warnln("[spider] panic:", r)
-					}
-				}()
-				err := os.Mkdir("videotmp", 0750)
-				if err != nil && !errors.Is(err, os.ErrExist) {
-					logrus.Infof("[spider] failed to mkdir `videotmp`: %v", err)
-					return
-				}
-				err = downloadVideoFromURL(video.URL, nil)
-				if err != nil {
-					logrus.Warnln("[spider] download Failed", video, err.Error())
-					return
-				}
-			}()
 		}
 	}
 }
