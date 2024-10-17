@@ -127,7 +127,6 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/setutime"         // 来份涩图
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/shadiao"          // 沙雕app
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/shindan"          // 测定
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/slash"            // /rua slash bot
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/steam"            // steam相关
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/tarot"            // 抽塔罗牌
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/tiangou"          // 舔狗日记
@@ -171,6 +170,8 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/thesaurus" // 词典匹配回复
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/breakrepeat" // 打断复读
+
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/slash" // /rua slash bot
 
 	//                               ^^^^                               //
 	//                          ^^^^^^^^^^^^^^                          //
@@ -318,14 +319,8 @@ func main() {
 				ctx.Block()
 				return
 			}
-			for i := range ctx.Event.Message {
-				segment := ctx.Event.Message[i]
-				marshal, _ := json.Marshal(segment.Data)
-				logrus.Infof("[msg] %s %s", segment.Type, string(marshal))
-			}
-			logrus.Infof("msg json %s", ctx.Event.RawEvent.String())
 			// PostType/DetailType/SubType
-			logrus.Infof("msg %s/%s/%s", ctx.Event.PostType, ctx.Event.DetailType, ctx.Event.SubType)
+			logrus.Debugf("msg %s/%s/%s", ctx.Event.PostType, ctx.Event.DetailType, ctx.Event.SubType)
 		})
 	}
 	// 帮助
