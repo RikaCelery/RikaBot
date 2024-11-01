@@ -418,80 +418,82 @@ func sendRssMessage(db *sql.Sqlite, item *gofeed.Item, feed *gofeed.Feed, ctx *z
 	return mid, err
 }
 
+var funcs = template.FuncMap{
+	"truncate": utils.Truncate,
+	"extractImages": func(in *gofeed.Item) template.HTML {
+		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in.Description))
+		if err != nil {
+			logrus.Errorf("tohtml error: %v", err)
+			panic(err)
+		}
+		var imgs []string
+		if in.Image != nil {
+			imgs = append(imgs, fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(in.Image.URL)))
+		}
+		for _, enclosure := range in.Enclosures {
+			if !strings.HasPrefix(enclosure.Type, "image") {
+				continue
+			}
+			cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
+			if !utils.Contains(imgs, cqURL) {
+				imgs = append(imgs, cqURL)
+			}
+		}
+		reader.Find("img").Each(func(_ int, selection *goquery.Selection) {
+			src := selection.AttrOr("src", "")
+			cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
+			if !utils.Contains(imgs, cqURL) {
+				imgs = append(imgs, fmt.Sprintf("<img src=\"%s\"/>", cqURL))
+			}
+		})
+		return template.HTML(strings.Join(imgs, " "))
+	},
+	"replace": func(src string, reg string, repl string) string {
+		regex, err := regexp.Compile(reg)
+		if err != nil {
+			logrus.Errorf("regexp compile error: %v", err)
+			panic(err)
+		}
+		return regex.ReplaceAllString(src, repl)
+	},
+	"escape": func(in string) template.HTML {
+		return template.HTML(in)
+	},
+	"tohtml": func(in string) *goquery.Document {
+		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
+		if err != nil {
+			logrus.Errorf("tohtml error: %v", err)
+			panic(err)
+		}
+		return reader
+	},
+	"select": func(in string, selector string) *goquery.Selection {
+		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
+		if err != nil {
+			logrus.Errorf("select error: %v", err)
+			panic(err)
+		}
+		find := reader.Find(selector)
+		// println(in, selector, find)
+		return find
+	},
+	"selContent": func(in *goquery.Selection) template.HTML {
+		return template.HTML(strings.Trim(in.Text(), " \n\r"))
+	},
+	"docContent": func(in *goquery.Document) template.HTML {
+		return template.HTML(strings.Trim(in.Text(), " \n\r"))
+	},
+	"startWith": strings.HasPrefix,
+	"endWith":   strings.HasSuffix,
+	"isnil": func(obj interface{}) bool {
+		return obj == nil
+	},
+	"notnil": func(obj interface{}) bool {
+		return obj != nil
+	},
+}
+
 func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (string, error) {
-	funcs := template.FuncMap{
-		"truncate": utils.Truncate,
-		"extractImages": func(in *gofeed.Item) {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in.Description))
-			if err != nil {
-				logrus.Errorf("tohtml error: %v", err)
-				panic(err)
-			}
-			var imgs []string
-			if in.Image != nil {
-				imgs = append(imgs, fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(in.Image.URL)))
-			}
-			for _, enclosure := range in.Enclosures {
-				if !strings.HasPrefix(enclosure.Type, "image") {
-					continue
-				}
-				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(enclosure.URL))
-				if !utils.Contains(imgs, cqURL) {
-					imgs = append(imgs, cqURL)
-				}
-			}
-			reader.Find("img").Each(func(_ int, selection *goquery.Selection) {
-				src := selection.AttrOr("src", "")
-				cqURL := fmt.Sprintf("[CQ:image,file=%s]", message.EscapeCQCodeText(src))
-				if !utils.Contains(imgs, cqURL) {
-					imgs = append(imgs, cqURL)
-				}
-			})
-		},
-		"replace": func(src string, reg string, repl string) string {
-			regex, err := regexp.Compile(reg)
-			if err != nil {
-				logrus.Errorf("regexp compile error: %v", err)
-				panic(err)
-			}
-			return regex.ReplaceAllString(src, repl)
-		},
-		"escape": func(in string) template.HTML {
-			return template.HTML(in)
-		},
-		"tohtml": func(in string) *goquery.Document {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("tohtml error: %v", err)
-				panic(err)
-			}
-			return reader
-		},
-		"select": func(in string, selector string) *goquery.Selection {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("select error: %v", err)
-				panic(err)
-			}
-			find := reader.Find(selector)
-			// println(in, selector, find)
-			return find
-		},
-		"selContent": func(in *goquery.Selection) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"docContent": func(in *goquery.Document) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"startWith": strings.HasPrefix,
-		"endWith":   strings.HasSuffix,
-		"isnil": func(obj interface{}) bool {
-			return obj == nil
-		},
-		"notnil": func(obj interface{}) bool {
-			return obj != nil
-		},
-	}
 
 	tmpl, err := template.New("rss_text_template").Funcs(funcs).Parse(_template)
 	if err != nil {
@@ -628,7 +630,7 @@ type renderInfo struct {
 func renderRssImage(item *gofeed.Item, feed *gofeed.Feed) ([]byte, error) {
 	postData := &renderInfo{}
 	parsed, _ := url.Parse(item.Link)
-	t, err := template.New("rss.gohtml").ParseGlob("template/*")
+	t, err := template.New("rss.gohtml").Funcs(funcs).ParseGlob("template/*")
 	if err != nil {
 		return nil, err
 	}
