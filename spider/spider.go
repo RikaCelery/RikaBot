@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/FloatTech/floatbox/process"
 	"image"
 	"image/jpeg"
 	"io"
@@ -611,7 +612,7 @@ create table if not exists file_name_map
 		}
 	})
 
-	zero.OnCommand("download", zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
+	zero.OnCommand("download", zero.SuperUserPermission, zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
 
 		if len(args) == 0 {
 			for _, result := range ctx.GetGroupList().Array() {
@@ -634,11 +635,12 @@ create table if not exists file_name_map
 		}
 		ctx.State["groups"] = gps
 		return true
-	}), zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	})).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		gps := ctx.State["groups"].([]int64)
-		for _, gp := range gps {
+		utils.ParallelMap(gps, 20, func(gp int64) (string, error) {
 			downloadGroup(ctx, gp)
-		}
+			return "", nil
+		})
 	}).NoTimeout = true
 }
 
@@ -722,10 +724,10 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 		}
 
 	}
-	if !utils.Exists("gpfile/ok") {
-		os.MkdirAll("gpfile/ok", 0777)
-	}
-	ctx.Send(fmt.Sprintf("准备下载，共%d", len(downloadQueue)))
+	//if !utils.Exists("gpfile/ok") {
+	//	os.MkdirAll("gpfile/ok", 0777)
+	//}
+	ctx.Send(fmt.Sprintf("准备下载(%d)，共%d", gp, len(downloadQueue)))
 	join := make([]map[string]string, 0)
 	for i, v := range downloadQueue {
 		join = append(join, map[string]string{
@@ -735,11 +737,17 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 		if (i+1)%32 == 0 {
 			j, _ := json.Marshal(join)
 			join = make([]map[string]string, 0)
-			http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+			_, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+			if err != nil {
+				logrus.Infoln(err.Error())
+			}
 		}
 	}
 	j, _ := json.Marshal(join)
-	http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+	_, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+	if err != nil {
+		logrus.Infoln(err.Error())
+	}
 	//utils.ParallelMap(downloadQueue, 8, func(v vfile) (string, error) {
 	//	path := fmt.Sprintf("gpfile/ok/%s", v.UName())
 	//	dir, _ := filepath.Split(path)
@@ -930,8 +938,9 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 	if len(info.Magnets) != 0 {
 		send += "🧲:\n" + strings.Join(info.Magnets, "\n")
 	}
-	if forwardMsg && !strings.Contains(send, "省流") && (len(info.Images) > 5 || len(info.Videos) > 5 || len(info.Magnets) > 0) {
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("%s %s", forwardHash, send)))
+	if forwardMsg && !strings.Contains(send, "省流") && (len(info.Images) > 30 || len(info.Videos) > 30 || len(info.Magnets) > 0) {
+		process.SleepAbout1sTo2s()
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(fmt.Sprintf("省流(%s): %s", forwardHash, send)))
 	}
 	if len(images) == 0 && len(videos) == 0 && len(magnets) == 0 {
 		return
