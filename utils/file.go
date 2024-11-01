@@ -16,3 +16,11 @@ func Exists(path string) bool {
 	log.Infof("unable to stat path %q; %v", path, err)
 	return false
 }
+
+func ReadBytes(c string) ([]byte, error) {
+	return os.ReadFile(c)
+}
+
+func WriteBytes(c string, data []byte) error {
+	return os.WriteFile(c, data, 0644)
+}
