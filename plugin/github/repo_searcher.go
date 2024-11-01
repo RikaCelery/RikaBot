@@ -63,11 +63,11 @@ func init() { // 插件主体
 			_ = ctx.Parse(model)
 			switch expression := model.Matched[4]; expression {
 			case "":
-				ctx.Send(
-					message.Image(
-						"https://opengraph.githubassets.com/0/"+model.Matched[2]+"/"+model.Matched[3],
-					).Add("cache", 0),
-				)
+				data, err := web.GetData("https://opengraph.githubassets.com/0/" + model.Matched[2] + "/" + model.Matched[3])
+				if err != nil {
+					log.Errorln("[ERROR]:", err)
+				}
+				ctx.Send(message.ImageBytes(data))
 				return
 			case "/blob":
 				bytes, err := utils.ScreenShotElementURL(
