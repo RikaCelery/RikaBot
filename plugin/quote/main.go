@@ -4,6 +4,7 @@ package quote
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/wdvxdr1123/ZeroBot/extension"
 	"html"
 	"strconv"
 	"strings"
@@ -124,9 +125,11 @@ func init() {
 		SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
 	}
 	quoteArgsParser, _ := arg.NewParser(arg.Config{Program: zero.BotConfig.CommandPrefix + "q", IgnoreEnv: true}, &quoteArgs)
-	engine.OnRegex(`^\[CQ:reply,id=(-?\d+)\].*/q\s*(.*)$`, zero.OnlyGroup).SetBlock(true).
+	engine.OnMessage(zero.NewPattern().Reply().Text(`/q\s*(.*)`).AsRule(), zero.OnlyGroup).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			err := quoteArgsParser.Parse(shell.Parse(ctx.State["regex_matched"].([]string)[2]))
+			model := extension.PatternModel{}
+			_ = ctx.Parse(&model)
+			err := quoteArgsParser.Parse(shell.Parse(model.Matched[1].Text()[1]))
 			if err != nil {
 				var buf = &strings.Builder{}
 				buf.WriteString("参数似乎不对哦～" + err.Error() + "\n")
@@ -134,7 +137,7 @@ func init() {
 				ctx.Send(buf.String())
 				return
 			}
-			messageID := ctx.State["regex_matched"].([]string)[1]
+			messageID := model.Matched[0].Reply()
 			mid, err := strconv.Atoi(messageID)
 			if err != nil {
 				ctx.SendChain(message.Text("[ERROR]:", err))
@@ -163,32 +166,37 @@ func init() {
 				}
 				ctx.SendChain(message.ImageBytes(bytes))
 			} else {
-				hisMessages := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid)).Get("messages").Array()
-				hisMessages = hisMessages[len(hisMessages)-quoteArgs.Size:]
-				utils.Reverse(hisMessages)
-				if len(hisMessages) > 0 {
-					var i = 0
-					for i < len(hisMessages) {
-						chain := hisMessages[i]
-						// println(chain.String())
-						if replyID := chain.Get("message.0.data.id").Int(); chain.Get("message.0.type").String() == "reply" && replyID != 0 {
-							var contains = false
-							for j := i + 1; j < len(hisMessages); j++ {
-								if hisMessages[j].Get("message_id").Int() == replyID {
-									contains = true
-									break
-								}
-							}
-							if !contains {
-								rsp := ctx.CallAction("get_msg", zero.Params{
-									"message_id": replyID,
-								}).Data
-								hisMessages = append(hisMessages, rsp)
-							}
-						}
-						i++
-					}
-				}
+				hisMessages := ctx.CallAction("get_group_msg_history", zero.Params{
+					"group_id":   ctx.Event.GroupID,
+					"message_id": mid,
+					"count":      quoteArgs.Size,
+				}).Data.Get("messages").Array()
+				//hisMessages := ctx.GetGroupMessageHistory(ctx.Event.GroupID, int64(mid)).Get("messages").Array()
+				//hisMessages = hisMessages[len(hisMessages)-quoteArgs.Size:]
+				//utils.Reverse(hisMessages)
+				//if len(hisMessages) > 0 {
+				//	var i = 0
+				//	for i < len(hisMessages) {
+				//		chain := hisMessages[i]
+				//		// println(chain.String())
+				//		if replyID := chain.Get("message.0.data.id").Int(); chain.Get("message.0.type").String() == "reply" && replyID != 0 {
+				//			var contains = false
+				//			for j := i + 1; j < len(hisMessages); j++ {
+				//				if hisMessages[j].Get("message_id").Int() == replyID {
+				//					contains = true
+				//					break
+				//				}
+				//			}
+				//			if !contains {
+				//				rsp := ctx.CallAction("get_msg", zero.Params{
+				//					"message_id": replyID,
+				//				}).Data
+				//				hisMessages = append(hisMessages, rsp)
+				//			}
+				//		}
+				//		i++
+				//	}
+				//}
 				utils.Reverse(hisMessages)
 				var body []*RenderMessage
 				for _, chain := range hisMessages {
