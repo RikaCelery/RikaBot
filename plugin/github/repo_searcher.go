@@ -56,11 +56,14 @@ func init() { // 插件主体
 		Help: "- {prefix}github [xxx]\n" +
 			"- {prefix}github -p [xxx]",
 	})
-	e.OnRegex(`(github.com/([^/ \n]+)/([^/ \n]+)(?:(/pulls?|/issues|/discussions|/actions(?:/runs)?|/blob)/?(\d+)?)?[^#\s]*(#L\d+-L\d+)?)`).SetBlock(true).
+	e.OnRegex(`(github\.com/([^/ \n]+)/([^/ \n]+)(?:(/pulls?|/issues|/discussions|/actions(?:/runs)?|/blob)/?(\d+)?)?[^#\s]*(#L\d+-L\d+)?)`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			log.Debugf("[github] regex matched: %v", ctx.State["regex_matched"].([]string))
 			model := &extension.RegexModel{}
 			_ = ctx.Parse(model)
+			if model.Matched[2] == "topics" {
+				return
+			}
 			switch expression := model.Matched[4]; expression {
 			case "":
 				data, err := web.GetData("https://opengraph.githubassets.com/0/" + model.Matched[2] + "/" + model.Matched[3])
