@@ -296,7 +296,8 @@ func init() { // 插件主体
 	go func() {
 		preview, err := getPetPreview()
 		if err != nil {
-			panic(err)
+			log.Errorln(err)
+			return
 		}
 		log.Infof("[petpet] 预览缓存完成: %d", len(preview))
 		cache.Set("big", preview)
