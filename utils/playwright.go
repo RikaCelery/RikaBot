@@ -103,6 +103,9 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+		_ = route.Continue()
+	})
 	inited = true
 }
 
@@ -264,6 +267,9 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 		if err != nil {
 			return nil, err
 		}
+		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+			_ = route.Continue()
+		})
 		defer ctx.Close()
 	}
 	page, err := ctx.NewPage()
@@ -327,6 +333,9 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 		if err != nil {
 			return nil, err
 		}
+		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+			_ = route.Continue()
+		})
 		defer ctx.Close()
 	}
 	page, err := ctx.NewPage()
@@ -375,6 +384,9 @@ func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (byte
 		if err != nil {
 			return nil, err
 		}
+		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+			_ = route.Continue()
+		})
 		defer ctx.Close()
 	}
 	page, err := ctx.NewPage()
@@ -416,6 +428,9 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 		if err != nil {
 			return nil, err
 		}
+		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+			_ = route.Continue()
+		})
 		defer ctx.Close()
 	}
 	page, err := ctx.NewPage()
