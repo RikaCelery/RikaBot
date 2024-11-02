@@ -50,8 +50,8 @@ body {
     margin: 0;
 }
 `
-	pw     *playwright.Playwright
-	ctx    playwright.BrowserContext
+	pw *playwright.Playwright
+	//ctx    playwright.BrowserContext
 	inited = false
 	// DefaultPageOptions 默认截图选项
 	DefaultPageOptions = playwright.PageScreenshotOptions{
@@ -88,25 +88,22 @@ func init() {
 		}
 	}
 
-	ctx, err = pw.Chromium.LaunchPersistentContext("./bw", playwright.BrowserTypeLaunchPersistentContextOptions{
-		DeviceScaleFactor: playwright.Float(1.5),
-		ChromiumSandbox:   playwright.Bool(false),
-		AcceptDownloads:   playwright.Bool(false),
-		Headless:          playwright.Bool(true),
-		Proxy: &playwright.Proxy{
-			Server:   "http://localhost:7890",
-			Bypass:   nil,
-			Username: nil,
-			Password: nil,
-		},
-		//ColorScheme:       playwright.ColorSchemeDark,
-	})
+	//ctx, err = pw.Chromium.LaunchPersistentContext("./bw", playwright.BrowserTypeLaunchPersistentContextOptions{
+	//	DeviceScaleFactor: playwright.Float(1.5),
+	//	ChromiumSandbox:   playwright.Bool(false),
+	//	AcceptDownloads:   playwright.Bool(false),
+	//	Headless:          playwright.Bool(true),
+	//	Proxy: &playwright.Proxy{
+	//		Server:   "http://localhost:7890",
+	//		Bypass:   nil,
+	//		Username: nil,
+	//		Password: nil,
+	//	},
+	//	//ColorScheme:       playwright.ColorSchemeDark,
+	//})
 	if err != nil {
 		panic(err)
 	}
-	_ = ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
-		_ = route.Continue()
-	})
 	inited = true
 }
 
@@ -174,9 +171,9 @@ else if (location.hostname.search(/xhamster/!=1)){
 }
 func launchContext(dpi float64) (playwright.BrowserContext, error) {
 	if dpi == 0 {
-		return ctx, nil
+		dpi = 1.5
 	}
-	return pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", dpi), playwright.BrowserTypeLaunchPersistentContextOptions{
+	context, err := pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", dpi), playwright.BrowserTypeLaunchPersistentContextOptions{
 		DeviceScaleFactor: playwright.Float(dpi),
 		ChromiumSandbox:   playwright.Bool(false),
 		AcceptDownloads:   playwright.Bool(false),
@@ -188,6 +185,12 @@ func launchContext(dpi float64) (playwright.BrowserContext, error) {
 			Password: playwright.String(os.Getenv("PROXY_PASSWORD")),
 		},
 	})
+	if err == nil {
+		_ = context.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+			_ = route.Continue()
+		})
+	}
+	return context, err
 }
 func getScreenShotPageOption(option []ScreenShotPageOption) ScreenShotPageOption {
 	o := ScreenShotPageOption{Width: 600, Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
