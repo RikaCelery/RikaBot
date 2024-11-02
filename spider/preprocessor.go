@@ -1,10 +1,11 @@
 package spider
 
 import (
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
 	"github.com/sirupsen/logrus"
-	"github.com/wdvxdr1123/ZeroBot"
+	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 )
 
 func preprocess(ctx *zero.Ctx) bool {
@@ -21,7 +22,7 @@ func preprocess(ctx *zero.Ctx) bool {
 			segments = append(segments, segment)
 		}
 	}
-	//hasher := md5.New()
+	// hasher := md5.New()
 	for len(forwards) != 0 {
 		R := utils.ParallelMap(forwards, 4, func(v message.Segment) (message.Message, error) {
 			forwardMessage := ctx.GetForwardMessage(v.Data["id"])
@@ -47,8 +48,7 @@ func preprocess(ctx *zero.Ctx) bool {
 
 		for i := 0; i < len(segments); i++ {
 			segment := segments[i]
-			switch segment.Type {
-			case "forward":
+			if segment.Type == "forward" {
 				forwards = append(forwards, segment)
 			}
 		}
@@ -69,7 +69,7 @@ func preprocess(ctx *zero.Ctx) bool {
 			URL := v.Data["url"]
 			err := downloadImageFromURL(URL, filename)
 			if err != nil {
-				logrus.Warning("download image(%s) failed: ", URL, err.Error())
+				logrus.Warningf("download image(%s) failed: %v", URL, err.Error())
 				v.Data["hash"] = "[image_error]"
 				return v, nil
 			}

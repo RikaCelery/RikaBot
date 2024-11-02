@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/FloatTech/floatbox/process"
 	"image"
 	"image/jpeg"
 	"io"
@@ -21,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FloatTech/floatbox/process"
 
 	"github.com/FloatTech/zbputils/control"
 
@@ -343,7 +344,7 @@ func downloadGroupFileFromURL(fileURL string, dest string) error {
 	// 将临时文件重命名为最终文件
 	dir, _ := filepath.Split(dest)
 	if !utils.Exists(dir) {
-		os.MkdirAll(dir, 0755)
+		_ = os.MkdirAll(dir, 0755)
 	}
 	if err := os.Rename(tempFile.Name(), dest); err != nil {
 		return err
@@ -403,14 +404,14 @@ func getImageHashFromFile(filename string) (phash string, md5hash string, err er
 	if err != nil {
 		return "", "", err
 	}
-	phash_, err := goimagehash.PerceptionHash(img)
+	hash, err := goimagehash.PerceptionHash(img)
 	if err != nil {
 		return "", "", err
 	}
 	sum := md5.New()
 	sum.Write(readFile)
 	md5hash = hex.EncodeToString(sum.Sum(nil))
-	return fmt.Sprintf("%016x", phash_.GetHash()), md5hash, nil
+	return fmt.Sprintf("%016x", hash.GetHash()), md5hash, nil
 }
 
 //nolint:unparam
@@ -613,7 +614,6 @@ create table if not exists file_name_map
 	})
 
 	zero.OnCommand("download", zero.SuperUserPermission, zero.CheckArgs(func(ctx *zero.Ctx, args []string) bool {
-
 		if len(args) == 0 {
 			for _, result := range ctx.GetGroupList().Array() {
 				println(result.String())
@@ -719,12 +719,9 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 			logrus.Errorf("error")
 			continue
 		}
-		for _, v := range *folder.Ret {
-			downloadQueue = append(downloadQueue, v)
-		}
-
+		downloadQueue = append(downloadQueue, *folder.Ret...)
 	}
-	//if !utils.Exists("gpfile/ok") {
+	// if !utils.Exists("gpfile/ok") {
 	//	os.MkdirAll("gpfile/ok", 0777)
 	//}
 	ctx.Send(fmt.Sprintf("准备下载(%d)，共%d", gp, len(downloadQueue)))
@@ -737,18 +734,20 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 		if (i+1)%32 == 0 {
 			j, _ := json.Marshal(join)
 			join = make([]map[string]string, 0)
-			_, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+			resp, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
 			if err != nil {
 				logrus.Infoln(err.Error())
 			}
+			resp.Body.Close()
 		}
 	}
 	j, _ := json.Marshal(join)
-	_, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
+	resp, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
 	if err != nil {
 		logrus.Infoln(err.Error())
 	}
-	//utils.ParallelMap(downloadQueue, 8, func(v vfile) (string, error) {
+	resp.Body.Close()
+	// utils.ParallelMap(downloadQueue, 8, func(v vfile) (string, error) {
 	//	path := fmt.Sprintf("gpfile/ok/%s", v.UName())
 	//	dir, _ := filepath.Split(path)
 	//	if !utils.Exists(dir) {
@@ -765,7 +764,7 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 	//	}
 	//	os.Create(path)
 	//	return path, nil
-	//})
+	// })
 	ctx.Send(fmt.Sprintf("下载成功，共%d", len(downloadQueue)))
 }
 
@@ -985,48 +984,4 @@ func handle(db *sqlite.Sqlite, ctx *zero.Ctx) {
 			return
 		}
 	}
-}
-
-func parse(result gjson.Result, filter []string, callback func(res gjson.Result)) {
-	t := result.Get("type").String()
-	switch t {
-	case "MultiMsgEntity":
-		for _, r := range result.Get("Chains").Array() {
-			parse(r, filter, callback)
-		}
-		return
-	case "TextEntity":
-		// logrus.Debugf("[spider] Text: %s\n", result.Get("Text").String())
-
-		for i := range filter {
-			if filter[i] == t {
-				callback(result)
-			}
-		}
-		return
-	case "VideoEntity":
-		// logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
-		for i := range filter {
-			if filter[i] == t {
-				callback(result)
-			}
-		}
-
-	case "ImageEntity":
-		// logrus.Debugf("[spider] ImageSize: %s\n", result.Get("ImageSize").Int())
-		for i := range filter {
-			if filter[i] == t {
-				callback(result)
-			}
-		}
-		return
-	case "MessageChain":
-		for _, r := range result.Get("MessageChain").Array() {
-			parse(r, filter, callback)
-		}
-		return
-	case "XmlEntity":
-		return
-	}
-	// logrus.Debugf("[spider] type: %s\n", t)
 }

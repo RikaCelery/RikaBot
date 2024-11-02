@@ -106,14 +106,14 @@ func match(ctx *zero.Ctx) bool {
 		return false
 	}
 	msgs := ctx.Event.Message
-	//logrus.Debugln("[emojimix] msg:", msgs)
+	// logrus.Debugln("[emojimix] msg:", msgs)
 	if msgs[0].Type == "text" && strings.HasPrefix(msgs[0].Data["text"], zero.BotConfig.CommandPrefix) {
 		ctx.State["emojimix_command"] = true
 	} else {
 		ctx.State["emojimix_command"] = false
 	}
 	msgEmojis := extractEmoji(msgs)
-	//logrus.Debugln("[emojimix] emojis:", msgEmojis)
+	// logrus.Debugln("[emojimix] emojis:", msgEmojis)
 	if len(msgEmojis) > 2 || len(msgEmojis) == 0 {
 		return false
 	}
@@ -146,9 +146,7 @@ func extractEmoji(msg message.Message) (emojis []string) {
 		switch segment.Type {
 		case "text":
 			s := segment.Data["text"]
-			if strings.HasPrefix(s, zero.BotConfig.CommandPrefix) {
-				s = s[len(zero.BotConfig.CommandPrefix):]
-			}
+			s = strings.TrimPrefix(s, zero.BotConfig.CommandPrefix)
 			loc := emojiRx.FindAllStringIndex(s, -1)
 			if len(loc) == 0 || loc[0][0] != 0 || loc[len(loc)-1][1] != len(s) {
 				return

@@ -2,9 +2,10 @@
 package slash
 
 import (
-	"github.com/wdvxdr1123/ZeroBot/extension"
 	"strconv"
 	"strings"
+
+	"github.com/wdvxdr1123/ZeroBot/extension"
 
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
@@ -23,7 +24,6 @@ var (
 )
 
 func init() {
-
 	/*
 		Params:
 			/rua [CQ:at,qq=123123] || match1 = /rua | match2 = cq... | match3 = id
@@ -66,7 +66,6 @@ func init() {
 		sender := gjson.Get(rsp, "sender.user_id").Int()
 		if len(getSplit) == 2 {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(ctx.CardOrNickName(ctx.Event.UserID)+" "+getSplit[0]+"了 "+ctx.CardOrNickName(sender)+getSplit[1]))
-		} else {
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(ctx.CardOrNickName(ctx.Event.UserID)+" "+getPatternInfo+"了 "+ctx.CardOrNickName(sender)))
 	})

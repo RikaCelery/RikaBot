@@ -494,7 +494,6 @@ var funcs = template.FuncMap{
 }
 
 func templateRender(_template string, item *gofeed.Item, feed *gofeed.Feed) (string, error) {
-
 	tmpl, err := template.New("rss_text_template").Funcs(funcs).Parse(_template)
 	if err != nil {
 		return "", err

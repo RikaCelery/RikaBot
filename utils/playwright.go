@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"html/template"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/playwright-community/playwright-go"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 // ScreenShotPageOption 截屏选项
@@ -103,7 +104,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
+	_ = ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
 		_ = route.Continue()
 	})
 	inited = true
@@ -171,58 +172,209 @@ else if (location.hostname.search(/xhamster/!=1)){
     document.querySelectorAll('.login-section,.search-container,.lang-geo-picker-container').forEach(e=>e.remove())
 }`)
 }
+func launchContext(dpi float64) (playwright.BrowserContext, error) {
+	if dpi == 0 {
+		return ctx, nil
+	}
+	return pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", dpi), playwright.BrowserTypeLaunchPersistentContextOptions{
+		DeviceScaleFactor: playwright.Float(dpi),
+		ChromiumSandbox:   playwright.Bool(false),
+		AcceptDownloads:   playwright.Bool(false),
+		Headless:          playwright.Bool(true),
+		Proxy: &playwright.Proxy{
+			Server:   "http://localhost:7890",
+			Bypass:   nil,
+			Username: playwright.String(os.Getenv("PROXY_USERNAME")),
+			Password: playwright.String(os.Getenv("PROXY_PASSWORD")),
+		},
+	})
+}
+func getScreenShotPageOption(option []ScreenShotPageOption) ScreenShotPageOption {
+	o := ScreenShotPageOption{Width: 600, Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
+	if len(option) != 0 {
+		o = option[0]
+	}
+	return o
+}
+
+func getScreenShotElementOption(option []ScreenShotElementOption) ScreenShotElementOption {
+	o := ScreenShotElementOption{Width: 600, Sleep: time.Millisecond * 100, PwOption: DefaultElementOptions}
+	if len(option) != 0 {
+		o = option[0]
+	}
+	return o
+}
+
+// ScreenShotPageContent takes a string of HTML content and optionally a set of screen shot options to capture a page screenshot.
+// This function initializes the browser context, creates a new page, sets the page content, and then takes a screenshot according to the specified options.
+func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (bytes []byte, err error) {
+	// Check if Playwright has been initialized
+	if !inited {
+		log.Error("Playwright not initialized")
+		return nil, errors.New("playwright not inited")
+	}
+
+	// Get the screen shot options, using the default if none are provided
+	o := getScreenShotPageOption(option)
+
+	// Launch a new browser context
+	ctx, err := launchContext(o.DPI)
+	if err != nil {
+		log.Errorf("Failed to launch context: %v", err)
+		return nil, err
+	}
+	defer ctx.Close()
+
+	// Create a new page in the browser context
+	page, err := ctx.NewPage()
+	if err != nil {
+		log.Errorf("Failed to create page: %v", err)
+		return nil, err
+	}
+	defer page.Close()
+
+	// Set the content of the page
+	err = page.SetContent(content)
+	if err != nil {
+		log.Errorf("Failed to set page content: %v", err)
+		return nil, err
+	}
+
+	// Take a screenshot of the page with the specified options
+	return screenShotPage(page, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
+}
+
+// ScreenShotElementContent takes a string of HTML content, a CSS selector for the target element, and optionally a set of screen shot options to capture a screenshot of a specific element.
+// This function initializes the browser context, creates a new page, sets the page content, and then takes a screenshot of the specified element according to the options.
+func ScreenShotElementContent(content string, selector string, option ...ScreenShotElementOption) (bytes []byte, err error) {
+	// Check if Playwright has been initialized
+	if !inited {
+		log.Error("Playwright not initialized")
+		return nil, errors.New("playwright not inited")
+	}
+
+	// Get the screen shot options for the element, using the default if none are provided
+	o := getScreenShotElementOption(option)
+
+	// Launch a new browser context
+	ctx, err := launchContext(o.DPI)
+	if err != nil {
+		log.Errorf("Failed to launch context: %v", err)
+		return nil, err
+	}
+	defer ctx.Close()
+
+	// Create a new page in the browser context
+	page, err := ctx.NewPage()
+	if err != nil {
+		log.Errorf("Failed to create page: %v", err)
+		return nil, err
+	}
+	defer page.Close()
+
+	// Set the content of the page
+	err = page.SetContent(content)
+	if err != nil {
+		log.Errorf("Failed to set page content: %v", err)
+		return nil, err
+	}
+
+	// Log the start of taking a screenshot
+	log.Info("Taking screenshot")
+
+	// Take a screenshot of the specified element with the specified options
+	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
+}
+
 func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
 	Clean(page)
 
 	if height == 0 {
 		height = 100
 	}
+
 	err := page.SetViewportSize(width, height)
 	if err != nil {
+		log.Printf("Error setting viewport size: %v", err)
 		return nil, err
 	}
+
 	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
 	if err != nil {
+		log.Printf("Error evaluating document scroll height: %v", err)
 		return nil, err
 	}
+
 	height = evaluated.(int)
+
 	err = page.SetViewportSize(width, height)
 	if err != nil {
+		log.Printf("Error setting viewport size after evaluation: %v", err)
 		return nil, err
 	}
+
 	WaitImage(page)
+
 	if before != nil {
 		before(page)
 	}
+
 	time.Sleep(sleep)
-	return page.Screenshot(pwOption)
+
+	screenshot, err := page.Screenshot(pwOption)
+	if err != nil {
+		log.Printf("Error taking screenshot: %v", err)
+		return nil, err
+	}
+
+	return screenshot, nil
 }
+
 func screenShotElement(page playwright.Page, selector string, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
+	logger := log.New()
+
 	Clean(page)
 
 	if height == 0 {
 		height = 100
 	}
+
 	err := page.SetViewportSize(width, height)
 	if err != nil {
+		logger.WithError(err).Error("Error setting viewport size")
 		return nil, err
 	}
+
 	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
 	if err != nil {
+		logger.WithError(err).Error("Error evaluating document scroll height")
 		return nil, err
 	}
+
 	height = evaluated.(int)
+
 	err = page.SetViewportSize(width, height)
 	if err != nil {
+		logger.WithError(err).Error("Error setting viewport size after evaluation")
 		return nil, err
 	}
+
 	WaitImage(page)
+
 	if before != nil {
 		before(page)
 	}
+
 	time.Sleep(sleep)
+
 	locator := page.Locator(selector)
-	return locator.Screenshot(pwOption)
+	screenshot, err := locator.Screenshot(pwOption)
+	if err != nil {
+		logger.WithError(err).Error("Error taking screenshot")
+		return nil, err
+	}
+
+	return screenshot, nil
 }
 
 // ScreenShotPageURL 网址截屏
@@ -245,33 +397,13 @@ func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, 
 	if parse.Scheme != "https" && parse.Scheme != "http" {
 		return nil, errors.New("unsupport schema")
 	}
-	o := ScreenShotPageOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
-	if len(option) != 0 {
-		o = option[0]
+	o := getScreenShotPageOption(option)
+	ctx, err := launchContext(o.DPI)
+	if err != nil {
+		log.Errorf("Failed to launch context: %v", err)
+		return nil, err
 	}
-	ctx := ctx
-	if o.DPI != 0 {
-		ctx, err = pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", o.DPI), playwright.BrowserTypeLaunchPersistentContextOptions{
-			DeviceScaleFactor: playwright.Float(o.DPI),
-			ChromiumSandbox:   playwright.Bool(false),
-			AcceptDownloads:   playwright.Bool(false),
-			Headless:          playwright.Bool(true),
-			Proxy: &playwright.Proxy{
-				Server:   "http://localhost:7890",
-				Bypass:   nil,
-				Username: nil,
-				Password: nil,
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
-			_ = route.Continue()
-		})
-		defer ctx.Close()
-	}
+	defer ctx.Close()
 	page, err := ctx.NewPage()
 	if err != nil {
 		return nil, err
@@ -310,34 +442,13 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 	if parse.Scheme != "https" && parse.Scheme != "http" {
 		return nil, errors.New("unsupport schema")
 	}
-	o := ScreenShotElementOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: playwright.LocatorScreenshotOptions{}}
-	if len(option) != 0 {
-		o = option[0]
+	o := getScreenShotElementOption(option)
+	ctx, err := launchContext(o.DPI)
+	if err != nil {
+		log.Errorf("Failed to launch context: %v", err)
+		return nil, err
 	}
-	ctx := ctx
-	if o.DPI != 0 {
-		ctx, err = pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", o.DPI), playwright.BrowserTypeLaunchPersistentContextOptions{
-			DeviceScaleFactor: playwright.Float(o.DPI),
-			ChromiumSandbox:   playwright.Bool(false),
-			AcceptDownloads:   playwright.Bool(false),
-			Headless:          playwright.Bool(true),
-			Proxy: &playwright.Proxy{
-				Server:   "http://localhost:7890",
-				Bypass:   nil,
-				Username: nil,
-				Password: nil,
-			},
-			//ColorScheme:       playwright.ColorSchemeDark,
-		})
-		if err != nil {
-			return nil, err
-		}
-		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
-			_ = route.Continue()
-		})
-		defer ctx.Close()
-	}
+	defer ctx.Close()
 	page, err := ctx.NewPage()
 	if err != nil {
 		return nil, err
@@ -356,145 +467,56 @@ func ScreenShotElementURL(u string, selector string, option ...ScreenShotElement
 	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
-// ScreenShotPageContent 自定义内容截屏
-func ScreenShotPageContent(content string, option ...ScreenShotPageOption) (bytes []byte, err error) {
-	if !inited {
-		return nil, errors.New("playwright not inited")
-	}
-	o := ScreenShotPageOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: DefaultPageOptions}
-	if len(option) != 0 {
-		o = option[0]
-	}
-	ctx := ctx
-	if o.DPI != 0 {
-		ctx, err = pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", o.DPI), playwright.BrowserTypeLaunchPersistentContextOptions{
-			DeviceScaleFactor: playwright.Float(o.DPI),
-			ChromiumSandbox:   playwright.Bool(false),
-			AcceptDownloads:   playwright.Bool(false),
-			Headless:          playwright.Bool(true),
-			Proxy: &playwright.Proxy{
-				Server:   "http://localhost:7890",
-				Bypass:   nil,
-				Username: nil,
-				Password: nil,
-			},
-			//ColorScheme:       playwright.ColorSchemeDark,
-		})
+var funcs = template.FuncMap{
+	"truncate": Truncate,
+	"escape": func(in string) template.HTML {
+		return template.HTML(in)
+	},
+	"replace": func(src string, reg string, repl string) string {
+		regex, err := regexp.Compile(reg)
 		if err != nil {
-			return nil, err
+			log.Errorf("regexp compile error: %v", err)
+			return src // 返回原始字符串
 		}
-		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
-			_ = route.Continue()
-		})
-		defer ctx.Close()
-	}
-	page, err := ctx.NewPage()
-	if err != nil {
-		return nil, err
-	}
-	defer page.Close()
-	err = page.SetContent(content)
-	if err != nil {
-		return nil, err
-	}
-	return screenShotPage(page, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
-}
-
-// ScreenShotElementContent 自定义元素截屏
-func ScreenShotElementContent(content string, selector string, option ...ScreenShotElementOption) (bytes []byte, err error) {
-	if !inited {
-		return nil, errors.New("playwright not inited")
-	}
-	ctx := ctx
-	o := ScreenShotElementOption{Width: 600,
-		Sleep: time.Millisecond * 100, PwOption: DefaultElementOptions}
-	if len(option) != 0 {
-		o = option[0]
-	}
-	if o.DPI != 0 {
-		ctx, err = pw.Chromium.LaunchPersistentContext(fmt.Sprintf("./bw%.1f", o.DPI), playwright.BrowserTypeLaunchPersistentContextOptions{
-			DeviceScaleFactor: playwright.Float(o.DPI),
-			ChromiumSandbox:   playwright.Bool(false),
-			AcceptDownloads:   playwright.Bool(false),
-			Headless:          playwright.Bool(true),
-			Proxy: &playwright.Proxy{
-				Server:   "http://localhost:7890",
-				Bypass:   nil,
-				Username: nil,
-				Password: nil,
-			},
-		})
+		return regex.ReplaceAllString(src, repl)
+	},
+	"tohtml": func(in string) *goquery.Document {
+		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
 		if err != nil {
-			return nil, err
+			log.Errorf("tohtml error: %v", err)
+			return nil // 返回空指针
 		}
-		ctx.Route("https://*.qlogo.cn/**", func(route playwright.Route) {
-			_ = route.Continue()
-		})
-		defer ctx.Close()
-	}
-	page, err := ctx.NewPage()
-	if err != nil {
-		return nil, err
-	}
-	defer page.Close()
-	err = page.SetContent(content)
-	if err != nil {
-		return nil, err
-	}
-	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
+		return reader
+	},
+	"select": func(in string, selector string) *goquery.Selection {
+		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
+		if err != nil {
+			log.Errorf("select error: %v", err)
+			return nil // 返回空指针
+		}
+		find := reader.Find(selector)
+		return find
+	},
+	"selContent": func(in *goquery.Selection) template.HTML {
+		return template.HTML(strings.Trim(in.Text(), " \n\r"))
+	},
+	"docContent": func(in *goquery.Document) template.HTML {
+		return template.HTML(strings.Trim(in.Text(), " \n\r"))
+	},
+	"startWith": strings.HasPrefix,
+	"endWith":   strings.HasSuffix,
+	"isnil": func(obj interface{}) bool {
+		return obj == nil
+	},
+	"notnil": func(obj interface{}) bool {
+		return obj != nil
+	},
 }
 
 // ScreenShotPageTemplate 模板截屏
 func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
-	}
-	funcs := template.FuncMap{
-		"truncate": Truncate,
-		"replace": func(src string, reg string, repl string) string {
-			regex, err := regexp.Compile(reg)
-			if err != nil {
-				logrus.Errorf("regexp compile error: %v", err)
-				panic(err)
-			}
-			return regex.ReplaceAllString(src, repl)
-		},
-		"escape": func(in string) template.HTML {
-			return template.HTML(in)
-		},
-		"tohtml": func(in string) *goquery.Document {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("tohtml error: %v", err)
-				panic(err)
-			}
-			return reader
-		},
-		"select": func(in string, selector string) *goquery.Selection {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("select error: %v", err)
-				panic(err)
-			}
-			find := reader.Find(selector)
-			// println(in, selector, find)
-			return find
-		},
-		"selContent": func(in *goquery.Selection) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"docContent": func(in *goquery.Document) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"startWith": strings.HasPrefix,
-		"endWith":   strings.HasSuffix,
-		"isnil": func(obj interface{}) bool {
-			return obj == nil
-		},
-		"notnil": func(obj interface{}) bool {
-			return obj != nil
-		},
 	}
 
 	t, err := template.New(name).Funcs(funcs).ParseGlob("template/*")
@@ -513,52 +535,6 @@ func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOptio
 func ScreenShotElementTemplate(name string, selector string, data any, option ...ScreenShotElementOption) (bytes []byte, err error) {
 	if !inited {
 		return nil, errors.New("playwright not inited")
-	}
-	funcs := template.FuncMap{
-		"truncate": Truncate,
-		"replace": func(src string, reg string, repl string) string {
-			regex, err := regexp.Compile(reg)
-			if err != nil {
-				logrus.Errorf("regexp compile error: %v", err)
-				panic(err)
-			}
-			return regex.ReplaceAllString(src, repl)
-		},
-		"escape": func(in string) template.HTML {
-			return template.HTML(in)
-		},
-		"tohtml": func(in string) *goquery.Document {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("tohtml error: %v", err)
-				panic(err)
-			}
-			return reader
-		},
-		"select": func(in string, selector string) *goquery.Selection {
-			reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
-			if err != nil {
-				logrus.Errorf("select error: %v", err)
-				panic(err)
-			}
-			find := reader.Find(selector)
-			// println(in, selector, find)
-			return find
-		},
-		"selContent": func(in *goquery.Selection) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"docContent": func(in *goquery.Document) template.HTML {
-			return template.HTML(strings.Trim(in.Text(), " \n\r"))
-		},
-		"startWith": strings.HasPrefix,
-		"endWith":   strings.HasSuffix,
-		"isnil": func(obj interface{}) bool {
-			return obj == nil
-		},
-		"notnil": func(obj interface{}) bool {
-			return obj != nil
-		},
 	}
 
 	t, err := template.New(name).Funcs(funcs).ParseGlob("template/*")

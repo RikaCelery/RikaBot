@@ -1,10 +1,23 @@
+// Package petpet 外置petpet插件
 package petpet
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/FloatTech/ZeroBot-Plugin/utils"
+	"image"
+	"image/color"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
+	"io"
+	"math"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/FloatTech/floatbox/web"
 	"github.com/FloatTech/ttl"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -18,18 +31,8 @@ import (
 	"golang.org/x/image/draw"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
-	"image"
-	"image/color"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
-	"io"
-	"math"
-	"net/http"
-	"os"
-	"strconv"
-	"strings"
-	"time"
+
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
 )
 
 type petType struct {
@@ -48,21 +51,18 @@ func getData(url string) (data []byte, err error) {
 	if utils.Exists(cache) {
 		return os.ReadFile(cache)
 	}
-
 	var response *http.Response
 	response, err = http.Get(url)
 	if err != nil {
-		response, err = http.Get(url)
+		return nil, err
 	}
-	if err == nil {
-		if response.StatusCode != http.StatusOK {
-			s := fmt.Sprintf("status code: %d", response.StatusCode)
-			err = errors.New(s)
-			return
-		}
-		data, err = io.ReadAll(response.Body)
-		response.Body.Close()
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		s := fmt.Sprintf("status code: %d", response.StatusCode)
+		err = errors.New(s)
+		return
 	}
+	data, err = io.ReadAll(response.Body)
 	_ = utils.WriteBytes(cache, data)
 	return
 }
@@ -102,7 +102,6 @@ func drawText(img *image.RGBA, face font.Face, text string) {
 		}
 	}
 	{
-
 		d := &font.Drawer{
 			Dst:  img,
 			Src:  image.Black,
@@ -145,11 +144,11 @@ func renderPreview(links []gjson.Result) ([]*image.RGBA, error) {
 	if err != nil {
 		return nil, err
 	}
-	font, err := truetype.Parse(fontBytes)
+	parsedFont, err := truetype.Parse(fontBytes)
 	if err != nil {
 		return nil, err
 	}
-	face := truetype.NewFace(font, &truetype.Options{
+	face := truetype.NewFace(parsedFont, &truetype.Options{
 		Size: 18, // 字体大小
 		DPI:  72, // 每英寸点数
 	})
@@ -164,7 +163,7 @@ func renderPreview(links []gjson.Result) ([]*image.RGBA, error) {
 			gifImg, err := gif.DecodeAll(bytes.NewReader(resp))
 			if err != nil {
 				log.Warningf("failed to decode gif: %v %s", err.Error(), key)
-				//return nil, err
+				// return nil, err
 				continue
 			}
 			// 获取第一帧
@@ -180,14 +179,14 @@ func renderPreview(links []gjson.Result) ([]*image.RGBA, error) {
 			pngImg, err := png.Decode(bytes.NewReader(resp))
 			if err != nil {
 				log.Warningf("failed to decode png: %v %s", err.Error(), key)
-				//return nil, err
+				// return nil, err
 				continue
 			}
 			resizedFrame = resizeImage(pngImg, frameWidth, frameHeight)
 			goto normal
 		}
 		log.Warningf("failed to download preview: %v %s", err.Error(), key)
-		//return nil, err
+		// return nil, err
 		continue
 	normal:
 
@@ -253,8 +252,8 @@ func resizeImage(src image.Image, targetWidth, targetHeight int) *image.RGBA {
 	offsetY := (targetHeight - height) / 2
 
 	// 将缩放后的图像绘制到目标图像的中心位置
-	draw.Draw(finalDst, finalDst.Bounds(), &image.Uniform{C: color.White}, image.ZP, draw.Src)
-	draw.Draw(finalDst, dst.Bounds().Add(image.Pt(offsetX, offsetY)), dst, image.ZP, draw.Over)
+	draw.Draw(finalDst, finalDst.Bounds(), &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+	draw.Draw(finalDst, dst.Bounds().Add(image.Pt(offsetX, offsetY)), dst, image.Point{}, draw.Over)
 
 	return finalDst
 }
@@ -378,7 +377,7 @@ func init() { // 插件主体
 			RandomAvatarList: make([]string, 0, 100),
 			TextList:         make([]string, 0, 4),
 		}
-		//for _, result := range ctx.GetThisGroupMemberList().Array() {
+		// for _, result := range ctx.GetThisGroupMemberList().Array() {
 		//	res.RandomAvatarList = append(res.RandomAvatarList, fmt.Sprintf("https://q1.qlogo.cn/g?b=qq&nk=%d&s=640", result.Int()))
 		//}
 		split := strings.Split(ctx.Event.Message[0].Data["text"], keyword)

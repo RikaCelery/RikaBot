@@ -9,9 +9,13 @@ import (
 	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
+//nolint:unused
 var slowsenders = syncx.Map[int64, *syncx.Lazy[*slowdo.Job[*zero.Ctx, message.Message]]]{}
+
+//nolint:unused
 var slowsendersfast = syncx.Map[int64, *syncx.Lazy[*slowdo.Job[*zero.Ctx, message.Message]]]{}
 
+//nolint:unused
 func collectSendFast(ctx *zero.Ctx, msgs ...message.Segment) {
 	id := ctx.Event.GroupID
 	if id == 0 {
@@ -39,6 +43,8 @@ func collectSendFast(ctx *zero.Ctx, msgs ...message.Segment) {
 	job := lazy.Get()
 	job.Add(msgs)
 }
+
+//nolint:unused
 func collectsend(ctx *zero.Ctx, msgs ...message.Segment) {
 	id := ctx.Event.GroupID
 	if id == 0 {

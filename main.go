@@ -84,7 +84,8 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/funny"        // 笑话
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/genshin"      // 原神抽卡
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/petpet"       // petpet制图
-	//_ "github.com/FloatTech/ZeroBot-Plugin/plugin/gif"              // 制图
+
+	// _ "github.com/FloatTech/ZeroBot-Plugin/plugin/gif"              // 制图
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/github"           // 搜索GitHub仓库
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/guessmusic"       // 猜歌
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/hitokoto"         // 一言
@@ -264,7 +265,7 @@ func init() {
 		}
 		config.W = make([]*driver.WSClient, 0, 2)
 		err = json.NewDecoder(f).Decode(&config)
-		f.Close()
+		_ = f.Close()
 		if err != nil {
 			panic(err)
 		}
@@ -296,7 +297,7 @@ func init() {
 			panic(err)
 		}
 		err = json.NewEncoder(f).Encode(&config)
-		f.Close()
+		_ = f.Close()
 		if err != nil {
 			panic(err)
 		}
