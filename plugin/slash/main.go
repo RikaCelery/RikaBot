@@ -29,7 +29,7 @@ func init() {
 			/rua [CQ:at,qq=123123] || match1 = /rua | match2 = cq... | match3 = id
 			match4 match 5 match 6
 	*/
-	engine.OnMessage(zero.NewPattern().Text(`^/(.+)$`).At().AsRule()).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnMessage(zero.NewPattern().Text(`^/(\S+)$`).At().AsRule()).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		model := extension.PatternModel{}
 		_ = ctx.Parse(&model)
 		// use matchedinfo
@@ -41,7 +41,7 @@ func init() {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getPersentUserinfo+" "+info+"了"+getUserInfo))
 	})
 
-	engine.OnMessage(zero.NewPattern().Text(`^/(.*)$`).AsRule(), func(ctx *zero.Ctx) bool {
+	engine.OnMessage(zero.NewPattern().Text(`/(\S.+)`).AsRule(), func(ctx *zero.Ctx) bool {
 		model := extension.PatternModel{}
 		_ = ctx.Parse(&model)
 		msg := model.Matched[0].Text()[1]
@@ -54,7 +54,7 @@ func init() {
 		getPatternInfo := ctx.State["rua"].(string)
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(ctx.CardOrNickName(ctx.Event.UserID)+getPatternInfo+"了自己~"))
 	})
-	engine.OnMessage(zero.NewPattern().Reply().Text(`^/(.+)$`).AsRule()).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnMessage(zero.NewPattern().Reply().Text(`^/(\S+)$`).AsRule()).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		model := extension.PatternModel{}
 		_ = ctx.Parse(&model)
 		getPatternUserMessageID := model.Matched[0].Reply()
