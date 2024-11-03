@@ -41,7 +41,7 @@ func init() {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getPersentUserinfo+" "+info+"了"+getUserInfo))
 	})
 
-	engine.OnMessage(zero.NewPattern().Text(`/(\S.+)`).AsRule(), func(ctx *zero.Ctx) bool {
+	engine.OnMessage(zero.NewPattern().Text(`^/(\S.+)$`).AsRule(), func(ctx *zero.Ctx) bool {
 		model := extension.PatternModel{}
 		_ = ctx.Parse(&model)
 		msg := model.Matched[0].Text()[1]
