@@ -17,7 +17,7 @@ import (
 
 func init() {
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault: true,
+		DisableOnDefault: false,
 		Brief:            "浏览器",
 		Help:             "- 截图 <网址>",
 	})
@@ -27,7 +27,7 @@ func init() {
 		Quality int      `arg:"-q" help:"截图质量，最高100"`
 		URL     []string `arg:"positional"`
 	}
-	engine.OnCommand("截图", func(ctx *zero.Ctx) bool {
+	engine.OnCommand("截图", zero.SuperUserPermission, func(ctx *zero.Ctx) bool {
 		var screenShotCmd = cmd{}
 		browserArgsParser, err := arg.NewParser(arg.Config{Program: zero.BotConfig.CommandPrefix + "截图", IgnoreEnv: true}, &screenShotCmd)
 		if err != nil {
@@ -45,7 +45,6 @@ func init() {
 		ctx.State["flag"] = screenShotCmd
 		return true
 	}).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-
 		model := ctx.State["flag"].(cmd)
 		for _, u := range model.URL {
 			img, err := utils.ScreenShotPageURL(u, utils.ScreenShotPageOption{
