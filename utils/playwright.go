@@ -44,11 +44,6 @@ var (
     display: none !important;
     visibility: hidden !important;
 }
-
-body {
-    padding: 0;
-    margin: 0;
-}
 `
 	pw *playwright.Playwright
 	//ctx    playwright.BrowserContext
@@ -289,97 +284,6 @@ func ScreenShotElementContent(content string, selector string, option ...ScreenS
 	return screenShotElement(page, selector, o.Width, o.Height, o.Sleep, o.Before, o.PwOption)
 }
 
-func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
-	Clean(page)
-
-	if height == 0 {
-		height = 100
-	}
-
-	err := page.SetViewportSize(width, height)
-	if err != nil {
-		log.Printf("Error setting viewport size: %v", err)
-		return nil, err
-	}
-
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	if err != nil {
-		log.Printf("Error evaluating document scroll height: %v", err)
-		return nil, err
-	}
-
-	height = evaluated.(int)
-
-	err = page.SetViewportSize(width, height)
-	if err != nil {
-		log.Printf("Error setting viewport size after evaluation: %v", err)
-		return nil, err
-	}
-
-	WaitImage(page)
-
-	if before != nil {
-		before(page)
-	}
-
-	time.Sleep(sleep)
-
-	screenshot, err := page.Screenshot(pwOption)
-	if err != nil {
-		log.Printf("Error taking screenshot: %v", err)
-		return nil, err
-	}
-
-	return screenshot, nil
-}
-
-func screenShotElement(page playwright.Page, selector string, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
-	logger := log.New()
-
-	Clean(page)
-
-	if height == 0 {
-		height = 100
-	}
-
-	err := page.SetViewportSize(width, height)
-	if err != nil {
-		logger.WithError(err).Error("Error setting viewport size")
-		return nil, err
-	}
-
-	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
-	if err != nil {
-		logger.WithError(err).Error("Error evaluating document scroll height")
-		return nil, err
-	}
-
-	height = evaluated.(int)
-
-	err = page.SetViewportSize(width, height)
-	if err != nil {
-		logger.WithError(err).Error("Error setting viewport size after evaluation")
-		return nil, err
-	}
-
-	WaitImage(page)
-
-	if before != nil {
-		before(page)
-	}
-
-	time.Sleep(sleep)
-
-	locator := page.Locator(selector)
-	screenshot, err := locator.Screenshot(pwOption)
-	if err != nil {
-		logger.WithError(err).Error("Error taking screenshot")
-		return nil, err
-	}
-
-	return screenshot, nil
-}
-
 // ScreenShotPageURL 网址截屏
 func ScreenShotPageURL(u string, option ...ScreenShotPageOption) (bytes []byte, err error) {
 	if !inited {
@@ -475,7 +379,7 @@ var funcs = template.FuncMap{
 	"escape": func(in string) template.HTML {
 		return template.HTML(in)
 	},
-	"replace": func(src string, reg string, repl string) string {
+	"replace": func(reg string, repl string, src string) string {
 		regex, err := regexp.Compile(reg)
 		if err != nil {
 			log.Errorf("regexp compile error: %v", err)
@@ -491,7 +395,7 @@ var funcs = template.FuncMap{
 		}
 		return reader
 	},
-	"select": func(in string, selector string) *goquery.Selection {
+	"select": func(selector string, in string) *goquery.Selection {
 		reader, err := goquery.NewDocumentFromReader(strings.NewReader(in))
 		if err != nil {
 			log.Errorf("select error: %v", err)
@@ -522,7 +426,7 @@ func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOptio
 		return nil, errors.New("playwright not inited")
 	}
 
-	t, err := template.New(name).Funcs(funcs).ParseGlob("template/*")
+	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.gohtml")
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +444,7 @@ func ScreenShotElementTemplate(name string, selector string, data any, option ..
 		return nil, errors.New("playwright not inited")
 	}
 
-	t, err := template.New(name).Funcs(funcs).ParseGlob("template/*")
+	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.gohtml")
 	if err != nil {
 		return nil, err
 	}
@@ -550,4 +454,96 @@ func ScreenShotElementTemplate(name string, selector string, data any, option ..
 		return nil, err
 	}
 	return ScreenShotElementContent(buf.String(), selector, option...)
+}
+
+func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
+	Clean(page)
+	if height < 100 {
+		height = 100
+	}
+	if *pwOption.FullPage {
+
+		err := page.SetViewportSize(width, height)
+		if err != nil {
+			log.Printf("Error setting viewport size: %v", err)
+			return nil, err
+		}
+
+		evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+		if err != nil {
+			log.Printf("Error evaluating document scroll height: %v", err)
+			return nil, err
+		}
+
+		height = evaluated.(int)
+	}
+
+	err := page.SetViewportSize(width, height)
+	if err != nil {
+		log.Printf("Error setting viewport size after evaluation: %v", err)
+		return nil, err
+	}
+
+	WaitImage(page)
+
+	if before != nil {
+		before(page)
+	}
+
+	time.Sleep(sleep)
+
+	screenshot, err := page.Screenshot(pwOption)
+	if err != nil {
+		log.Printf("Error taking screenshot: %v", err)
+		return nil, err
+	}
+
+	return screenshot, nil
+}
+
+func screenShotElement(page playwright.Page, selector string, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.LocatorScreenshotOptions) ([]byte, error) {
+	logger := log.New()
+
+	Clean(page)
+
+	if height == 0 {
+		height = 100
+	}
+
+	err := page.SetViewportSize(width, height)
+	if err != nil {
+		logger.WithError(err).Error("Error setting viewport size")
+		return nil, err
+	}
+
+	evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
+	if err != nil {
+		logger.WithError(err).Error("Error evaluating document scroll height")
+		return nil, err
+	}
+
+	height = evaluated.(int)
+
+	err = page.SetViewportSize(width, height)
+	if err != nil {
+		logger.WithError(err).Error("Error setting viewport size after evaluation")
+		return nil, err
+	}
+
+	WaitImage(page)
+
+	if before != nil {
+		before(page)
+	}
+
+	time.Sleep(sleep)
+
+	locator := page.Locator(selector)
+	screenshot, err := locator.Screenshot(pwOption)
+	if err != nil {
+		logger.WithError(err).Error("Error taking screenshot")
+		return nil, err
+	}
+
+	return screenshot, nil
 }
