@@ -34,13 +34,13 @@ func init() {
 	go func() {
 		ctdb = initialize(engine.DataFolder() + "chatcount.db")
 	}()
-	engine.OnMessage(zero.OnlyGroup).SetBlock(false).
-		Handle(func(ctx *zero.Ctx) {
-			remindTime, remindFlag := ctdb.updateChatTime(ctx.Event.GroupID, ctx.Event.UserID)
-			if remindFlag {
-				ctx.SendChain(message.At(ctx.Event.UserID), message.Text(fmt.Sprintf("BOT提醒：你今天已经水群%d分钟了！", remindTime)))
-			}
-		})
+	//engine.OnMessage(zero.OnlyGroup).SetBlock(false).
+	//	Handle(func(ctx *zero.Ctx) {
+	//		remindTime, remindFlag := ctdb.updateChatTime(ctx.Event.GroupID, ctx.Event.UserID)
+	//		if remindFlag {
+	//			ctx.SendChain(message.At(ctx.Event.UserID), message.Text(fmt.Sprintf("BOT提醒：你今天已经水群%d分钟了！", remindTime)))
+	//		}
+	//	})
 
 	engine.OnPrefix(`查询水群`, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		name := ctx.NickName()
