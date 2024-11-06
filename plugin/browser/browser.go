@@ -22,9 +22,10 @@ func init() {
 		Help:             "- 截图 <网址>",
 	})
 	type cmd struct {
-		Width   int      `arg:"-w"`
-		DPI     float64  `arg:"--dpi"`
-		Quality int      `arg:"-q" help:"截图质量，最高100"`
+		Width   int      `arg:"-W" default:"600"`
+		Height  int      `arg:"-H" help:"截图高度，0表示全屏" default:"0"`
+		DPI     float64  `arg:"--dpi" default:"1.5"`
+		Quality int      `arg:"-q" help:"截图质量，最高100" default:"30"`
 		URL     []string `arg:"positional"`
 	}
 	engine.OnCommand("截图", zero.SuperUserPermission, func(ctx *zero.Ctx) bool {
@@ -46,20 +47,25 @@ func init() {
 		return true
 	}).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		model := ctx.State["flag"].(cmd)
+		option := utils.ScreenShotPageOption{
+			Width: model.Width,
+			DPI:   model.DPI,
+			PwOption: playwright.PageScreenshotOptions{
+				FullPage:   utils.DefaultPageOptions.FullPage,
+				Type:       utils.DefaultPageOptions.Type,
+				Quality:    playwright.Int(model.Quality),
+				Timeout:    utils.DefaultPageOptions.Timeout,
+				Animations: playwright.ScreenshotAnimationsAllow,
+				Scale:      utils.DefaultPageOptions.Scale,
+				Style:      utils.DefaultPageOptions.Style,
+			},
+		}
+		if model.Height != 0 {
+			option.Height = model.Height
+			option.PwOption.FullPage = playwright.Bool(false)
+		}
 		for _, u := range model.URL {
-			img, err := utils.ScreenShotPageURL(u, utils.ScreenShotPageOption{
-				Width: model.Width,
-				DPI:   model.DPI,
-				PwOption: playwright.PageScreenshotOptions{
-					FullPage:   utils.DefaultPageOptions.FullPage,
-					Type:       utils.DefaultPageOptions.Type,
-					Quality:    playwright.Int(model.Quality),
-					Timeout:    utils.DefaultPageOptions.Timeout,
-					Animations: playwright.ScreenshotAnimationsAllow,
-					Scale:      utils.DefaultPageOptions.Scale,
-					Style:      utils.DefaultPageOptions.Style,
-				},
-			})
+			img, err := utils.ScreenShotPageURL(u, option)
 			if err != nil {
 				ctx.Send(fmt.Sprintf("ERROR: %v", err))
 				return
