@@ -116,6 +116,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/omikuji"          // 浅草寺求签
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/picpick"          // 图片收藏
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/poker"            // 抽扑克
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/previewer"        //生成预览
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qqwife"           // 一群一天一夫一妻制群老婆
 	"github.com/FloatTech/ZeroBot-Plugin/plugin/quote"              // 记录群友丢人时刻
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qzone"            // qq空间表白墙
