@@ -37,6 +37,23 @@ func init() {
 		})
 		return bytes, err
 	}
+	mappers[regexp.MustCompile(`steampowered\.com/app/(\d+)`)] = func(matched []string) ([]byte, error) {
+		fp := gofeed.NewParser()
+		feed, err := fp.ParseURL(fmt.Sprintf("http://localhost:1200/twitter/tweet/%s/status/%s", matched[1], matched[2]))
+		if err != nil {
+			return nil, err
+		}
+
+		bytes, err := utils.ScreenShotPageTemplate("twitter.gohtml", feed, utils.ScreenShotPageOption{
+			Width:    500,
+			Height:   0,
+			DPI:      0,
+			Before:   nil,
+			PwOption: utils.DefaultPageOptions,
+			Sleep:    0,
+		})
+		return bytes, err
+	}
 	e.OnMessage(func(ctx *zero.Ctx) bool {
 		for r, v := range mappers {
 			if r.MatchString(ctx.Event.RawMessage) {
