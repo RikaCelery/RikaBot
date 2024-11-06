@@ -9,9 +9,9 @@ require (
 	github.com/FloatTech/gg v1.1.3
 	github.com/FloatTech/imgfactory v0.2.2-0.20230413152719-e101cc3606ef
 	github.com/FloatTech/rendercard v0.2.0
-	github.com/FloatTech/sqlite v1.6.3
+	github.com/FloatTech/sqlite v1.7.0
 	github.com/FloatTech/ttl v0.0.0-20240716161252-965925764562
-	github.com/FloatTech/zbpctrl v1.6.2-0.20240904160347-1317e11a15bb
+	github.com/FloatTech/zbpctrl v1.7.0
 	github.com/FloatTech/zbputils v1.7.2-0.20241013175349-67b3df244b08
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/RomiChan/syncx v0.0.0-20240418144900-b7402ffdebc7
@@ -40,7 +40,6 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/liuzl/gocc v0.0.0-20231231122217-0372e1059ca5
 	github.com/mattn/go-runewidth v0.0.4
-	github.com/michielbuddingh/spamsum v0.0.0-20180326185754-3c8b46eabc1f
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/mroth/weightedrand v1.0.0
 	github.com/notnil/chess v1.9.0
@@ -51,7 +50,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tidwall/gjson v1.18.0
 	github.com/wcharczuk/go-chart/v2 v2.1.2
-	github.com/wdvxdr1123/ZeroBot v1.7.5
+	github.com/wdvxdr1123/ZeroBot v1.8.0
 	gitlab.com/gomidi/midi/v2 v2.1.7
 	golang.org/x/image v0.21.0
 	golang.org/x/sys v0.26.0
@@ -109,10 +108,10 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/mobile v0.0.0-20231127183840-76ac6878050a // indirect
 	golang.org/x/net v0.25.0 // indirect
-	modernc.org/libc v1.49.3 // indirect
+	modernc.org/libc v1.61.0 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.8.0 // indirect
-	modernc.org/sqlite v1.20.0 // indirect
+	modernc.org/sqlite v1.33.1 // indirect
 )
 
 replace modernc.org/sqlite => github.com/fumiama/sqlite3 v1.29.10-simp
