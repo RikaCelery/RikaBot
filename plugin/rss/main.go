@@ -131,6 +131,10 @@ create table if not exists 'group_rss_format'
 						for _, group := range groups {
 							if group.Get("group_id").Int() == int64(res.GID) {
 								_, err = sendRssMessage(db, item, feed, ctx, res)
+								if err != nil {
+									logrus.Errorf("insert group_rss_pushed failed: %v", err)
+									return false
+								}
 								res.LastUpdate = item.Published
 								err = setRssPushed(db, item, res)
 								if err != nil {
@@ -629,7 +633,7 @@ type renderInfo struct {
 func renderRssImage(item *gofeed.Item, feed *gofeed.Feed) ([]byte, error) {
 	postData := &renderInfo{}
 	parsed, _ := url.Parse(item.Link)
-	t, err := template.New("rss.gohtml").Funcs(funcs).ParseGlob("template/*")
+	t, err := template.New("rss.gohtml").Funcs(funcs).ParseGlob("template/**/*.*html")
 	if err != nil {
 		return nil, err
 	}
