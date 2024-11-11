@@ -126,7 +126,7 @@ func init() {
 		SingleUser bool `arg:"-s" default:"false" help:"仅查找被回复用户的消息"`
 	}
 	quoteArgsParser, _ := arg.NewParser(arg.Config{Program: zero.BotConfig.CommandPrefix + "q", IgnoreEnv: true}, &quoteArgs)
-	engine.OnMessage(zero.NewPattern().Reply().Text(`/q\s*(.*)`).AsRule(), zero.OnlyGroup).SetBlock(true).
+	engine.OnMessage(zero.NewPattern(nil).Reply().Text(`/q\s*(.*)`).AsRule(), zero.OnlyGroup).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			model := extension.PatternModel{}
 			_ = ctx.Parse(&model)

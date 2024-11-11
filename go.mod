@@ -131,7 +131,7 @@ replace github.com/FloatTech/floatbox => github.com/RikaCelery/floatbox v0.0.0-2
 
 replace github.com/FloatTech/sqlite => github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b
 
-replace github.com/wdvxdr1123/ZeroBot => github.com/RikaCelery/ZeroBot v0.0.0-20241108025829-b99b546c57bb
+replace github.com/wdvxdr1123/ZeroBot => github.com/RikaCelery/ZeroBot v0.0.0-20241111081320-1263d142aacc
 
 //replace github.com/wdvxdr1123/ZeroBot => /Users/rikahil/GolandProjects/ZeroBot
 

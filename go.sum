@@ -14,8 +14,8 @@ github.com/FloatTech/zbpctrl v1.6.2-0.20240904160347-1317e11a15bb/go.mod h1:I+Me
 github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
 github.com/PuerkitoBio/goquery v1.8.0 h1:PJTF7AmFCFKk1N6V6jmKfrNH9tV5pNE6lZMkG0gta/U=
 github.com/PuerkitoBio/goquery v1.8.0/go.mod h1:ypIiRMtY7COPGk+I/YbZLbxsxn9g5ejnI2HSMtkjZvI=
-github.com/RikaCelery/ZeroBot v0.0.0-20241108025829-b99b546c57bb h1:QWo2F8bh3nIXsCnaiaw+SAvfDNKwOgR1bFxcYpU/ZcE=
-github.com/RikaCelery/ZeroBot v0.0.0-20241108025829-b99b546c57bb/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
+github.com/RikaCelery/ZeroBot v0.0.0-20241111081320-1263d142aacc h1:59BA5aZJT5TQNy2uAZlGZ/xpsRZCqwWMnxE5rz5v84M=
+github.com/RikaCelery/ZeroBot v0.0.0-20241111081320-1263d142aacc/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5 h1:Z5CBkgQG0hunEu69pY8iEGfVp+sx7okHh+8qUr4NB9A=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
 github.com/RikaCelery/rendercard v0.0.0-20241015040459-3099f1c5d604 h1:Ztxp7nJfra9VlrulVQDjC5hyieHvLYivXzLZA4kIAgc=

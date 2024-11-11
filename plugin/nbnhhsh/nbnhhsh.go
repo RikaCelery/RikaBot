@@ -19,6 +19,7 @@ func init() {
 		DisableOnDefault: false,
 		Brief:            "拼音首字母释义工具",
 		Help:             "- ?? [缩写]",
+		PublicDataFolder: "Nbnhhsh",
 	}).OnRegex(`^[?？]{1,2} ?([a-z0-9]+)$`).SetBlock(false).
 		Handle(func(ctx *zero.Ctx) {
 			keyword := ctx.State["regex_matched"].([]string)[1]

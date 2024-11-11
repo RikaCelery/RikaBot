@@ -170,7 +170,7 @@ func init() {
 		})
 	// NTR技能
 	engine.OnMessage(
-		zero.NewPattern().Text("^当").At().Text("的?小三").AsRule(),
+		zero.NewPattern(nil).Text("^当").At().Text("的?小三").AsRule(),
 		zero.OnlyGroup,
 		getdb,
 		checkMistress,

@@ -17,7 +17,7 @@ func init() {
 			"- Recall | recall",
 	})
 	// 完全匹配和部分匹配都不能解决需要匹配回复这个问题, 只能用正则.
-	engine.OnMessage(zero.NewPattern().Reply().Text("^([Rr]ecall|撤回)$").AsRule(), zero.OnlyGroup, zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) { // 这个正则还是有缺陷的, 比如这样的消息: [CQ:reply,id=123]]]]]] 112233 依然会匹配. 脑细胞不太够用,想不出什么合适的解决方法
+	engine.OnMessage(zero.NewPattern(nil).Reply().Text("^([Rr]ecall|撤回)$").AsRule(), zero.OnlyGroup, zero.AdminPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) { // 这个正则还是有缺陷的, 比如这样的消息: [CQ:reply,id=123]]]]]] 112233 依然会匹配. 脑细胞不太够用,想不出什么合适的解决方法
 		model := extension.PatternModel{}
 		_ = ctx.Parse(&model)
 		curmsgid := ctx.Event.MessageID.(int64)                                     // 发送消息的消息ID

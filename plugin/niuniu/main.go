@@ -337,7 +337,7 @@ func init() {
 			message.Text("注册成功,你的牛牛现在有", u.Length, "cm"))
 	})
 	en.OnMessage(
-		zero.NewPattern().Text(".*(?:使用(.*))?jj.*").At().AsRule(),
+		zero.NewPattern(nil).Text(".*(?:使用(.*))?jj.*").At().AsRule(),
 		getdb,
 		zero.OnlyGroup).SetBlock(true).Limit(func(ctx *zero.Ctx) *rate.Limiter {
 		lt := jjLimiter.Load(fmt.Sprintf("%d_%d", ctx.Event.GroupID, ctx.Event.UserID))
