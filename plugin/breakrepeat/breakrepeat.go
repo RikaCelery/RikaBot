@@ -11,7 +11,7 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 )
 
-const throttle = 3 // 不可超过 9
+const throttle = 8 // 不可超过 9
 
 var sm syncx.Map[int64, string]
 

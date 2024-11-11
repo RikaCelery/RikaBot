@@ -34,7 +34,7 @@ func init() {
 	go func() {
 		ctdb = initialize(engine.DataFolder() + "chatcount.db")
 	}()
-	//engine.OnMessage(zero.OnlyGroup).SetBlock(false).
+	// engine.OnMessage(zero.OnlyGroup).SetBlock(false).
 	//	Handle(func(ctx *zero.Ctx) {
 	//		remindTime, remindFlag := ctdb.updateChatTime(ctx.Event.GroupID, ctx.Event.UserID)
 	//		if remindFlag {

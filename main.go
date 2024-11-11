@@ -64,6 +64,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/bilibili"     // b站相关
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/bookreview"   // 哀伤雪刃吧推书记录
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/browser"      // playwright浏览器相关
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/callmama"     // mama
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/chess"        // 国际象棋
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/choose"       // 选择困难症帮手
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/chouxianghua" // 说抽象话
@@ -116,7 +117,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/omikuji"          // 浅草寺求签
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/picpick"          // 图片收藏
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/poker"            // 抽扑克
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/previewer"        //生成预览
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/previewer"        // 生成预览
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qqwife"           // 一群一天一夫一妻制群老婆
 	"github.com/FloatTech/ZeroBot-Plugin/plugin/quote"              // 记录群友丢人时刻
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/qzone"            // qq空间表白墙
@@ -145,7 +146,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ygo"              // 游戏王相关插件
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/ymgal"            // 月幕galgame
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/yujn"
-	_ "github.com/FloatTech/ZeroBot-Plugin/recall" //SGK2401
+	_ "github.com/FloatTech/ZeroBot-Plugin/recall" // SGK2401
 
 	// _ "github.com/FloatTech/ZeroBot-Plugin/plugin/wtf"           // 鬼东西
 	//

@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"github.com/FloatTech/floatbox/math"
 	"sync"
+
+	"github.com/FloatTech/floatbox/math"
 )
 
 // Reverse 反转slice
@@ -22,12 +23,16 @@ func Contains(s []string, e string) bool {
 	return false
 }
 
+// Mapped Map的结果
 type Mapped[R any] []*MappedItem[R]
+
+// MappedItem 用于存储一次映射操作的结果。
 type MappedItem[R any] struct {
 	Ret *R
 	Err error
 }
 
+// ParallelMap 并行地执行一个函数，返回一个结果列表。
 func ParallelMap[T any, R any](list []T, concurrency int, transformer func(v T) (R, error)) Mapped[R] {
 
 	var res = make(chan chan MappedItem[R], math.Min(concurrency, len(list)))

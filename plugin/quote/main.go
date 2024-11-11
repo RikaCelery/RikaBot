@@ -4,11 +4,12 @@ package quote
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/wdvxdr1123/ZeroBot/extension"
 	"html"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/wdvxdr1123/ZeroBot/extension"
 
 	"github.com/playwright-community/playwright-go"
 

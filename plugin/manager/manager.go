@@ -406,10 +406,10 @@ func init() { // 插件主体
 		})
 	facere := regexp.MustCompile(`\[CQ:face,id=(\d+)]`)
 	// 给消息回应表情
-	engine.OnRegex(`^\[CQ:reply,id=(-?\d+)\].*回应表情\s*(.+)\s*$`, zero.AdminPermission, zero.OnlyGroup).SetBlock(true).
+	engine.OnMessage(zero.NewPattern().Reply().Text(`^回应表情\s*(.+)\s*$`).AsRule(), zero.AdminPermission, zero.OnlyGroup).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			msgid := ctx.State["regex_matched"].([]string)[1]
-			face := ctx.State["regex_matched"].([]string)[2]
+			msgid := ctx.State[zero.KeyPattern].([]zero.PatternParsed)[0].Reply()
+			face := ctx.State[zero.KeyPattern].([]zero.PatternParsed)[1].Text()[1]
 			if len(face) == 0 {
 				ctx.SendChain(message.Text("ERROR: 表情长度为 0"))
 				return
@@ -636,9 +636,9 @@ func init() { // 插件主体
 		}
 	})
 	// 设精
-	engine.OnRegex(`^\[CQ:reply,id=(-?\d+)\][\s\S]*(设置|取消)精华$`, zero.OnlyGroup, zero.AdminPermission).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
-		essenceID, _ := strconv.ParseInt(ctx.State["regex_matched"].([]string)[1], 10, 64)
-		option := ctx.State["regex_matched"].([]string)[2]
+	engine.OnMessage(zero.NewPattern().Reply().Text(`^(设置|取消)精华$`).AsRule(), zero.OnlyGroup, zero.AdminPermission).SetBlock(true).Limit(ctxext.LimitByUser).Handle(func(ctx *zero.Ctx) {
+		essenceID, _ := strconv.ParseInt(ctx.State[zero.KeyPattern].([]zero.PatternParsed)[0].Reply(), 10, 64)
+		option := ctx.State[zero.KeyPattern].([]zero.PatternParsed)[1].Text()[1]
 		var rsp zero.APIResponse
 		switch option {
 		case "设置":

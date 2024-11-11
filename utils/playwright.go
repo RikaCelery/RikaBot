@@ -46,7 +46,7 @@ var (
 }
 `
 	pw *playwright.Playwright
-	//ctx    playwright.BrowserContext
+	// ctx    playwright.BrowserContext
 	inited = false
 	// DefaultPageOptions 默认截图选项
 	DefaultPageOptions = playwright.PageScreenshotOptions{
@@ -83,7 +83,7 @@ func init() {
 		}
 	}
 
-	//ctx, err = pw.Chromium.LaunchPersistentContext("./bw", playwright.BrowserTypeLaunchPersistentContextOptions{
+	// ctx, err = pw.Chromium.LaunchPersistentContext("./bw", playwright.BrowserTypeLaunchPersistentContextOptions{
 	//	DeviceScaleFactor: playwright.Float(1.5),
 	//	ChromiumSandbox:   playwright.Bool(false),
 	//	AcceptDownloads:   playwright.Bool(false),
@@ -95,7 +95,7 @@ func init() {
 	//		Password: nil,
 	//	},
 	//	//ColorScheme:       playwright.ColorSchemeDark,
-	//})
+	// })
 	if err != nil {
 		panic(err)
 	}
@@ -425,8 +425,7 @@ func ScreenShotPageTemplate(name string, data any, option ...ScreenShotPageOptio
 	if !inited {
 		return nil, errors.New("playwright not inited")
 	}
-
-	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.gohtml")
+	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.*html")
 	if err != nil {
 		return nil, err
 	}
@@ -443,8 +442,7 @@ func ScreenShotElementTemplate(name string, selector string, data any, option ..
 	if !inited {
 		return nil, errors.New("playwright not inited")
 	}
-
-	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.gohtml")
+	t, err := template.New(name).Funcs(funcs).ParseGlob("template/**/*.*html")
 	if err != nil {
 		return nil, err
 	}
@@ -458,11 +456,10 @@ func ScreenShotElementTemplate(name string, selector string, data any, option ..
 
 func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
 	Clean(page)
-	if height < 100 {
-		height = 100
+	if height < 20 {
+		height = 20
 	}
 	if *pwOption.FullPage {
-
 		err := page.SetViewportSize(width, height)
 		if err != nil {
 			log.Printf("Error setting viewport size: %v", err)

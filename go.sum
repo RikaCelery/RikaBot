@@ -14,8 +14,8 @@ github.com/FloatTech/zbpctrl v1.6.2-0.20240904160347-1317e11a15bb/go.mod h1:I+Me
 github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
 github.com/PuerkitoBio/goquery v1.8.0 h1:PJTF7AmFCFKk1N6V6jmKfrNH9tV5pNE6lZMkG0gta/U=
 github.com/PuerkitoBio/goquery v1.8.0/go.mod h1:ypIiRMtY7COPGk+I/YbZLbxsxn9g5ejnI2HSMtkjZvI=
-github.com/RikaCelery/ZeroBot v0.0.0-20241014020704-a7a4f4e62b31 h1:ZfvLozKG2yICZJXiO1+7lR6ee04VooWSLP7InaBeQtI=
-github.com/RikaCelery/ZeroBot v0.0.0-20241014020704-a7a4f4e62b31/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
+github.com/RikaCelery/ZeroBot v0.0.0-20241108025829-b99b546c57bb h1:QWo2F8bh3nIXsCnaiaw+SAvfDNKwOgR1bFxcYpU/ZcE=
+github.com/RikaCelery/ZeroBot v0.0.0-20241108025829-b99b546c57bb/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5 h1:Z5CBkgQG0hunEu69pY8iEGfVp+sx7okHh+8qUr4NB9A=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
 github.com/RikaCelery/rendercard v0.0.0-20241015040459-3099f1c5d604 h1:Ztxp7nJfra9VlrulVQDjC5hyieHvLYivXzLZA4kIAgc=
@@ -32,8 +32,6 @@ github.com/adamzy/cedar-go v0.0.0-20170805034717-80a9c64b256d h1:ir/IFJU5xbja5Ua
 github.com/adamzy/cedar-go v0.0.0-20170805034717-80a9c64b256d/go.mod h1:PRWNwWq0yifz6XDPZu48aSld8BWwBfr2JKB2bGWiEd4=
 github.com/ajstarks/svgo v0.0.0-20200320125537-f189e35d30ca h1:kWzLcty5V2rzOqJM7Tp/MfSX0RMSI1x4IOLApEefYxA=
 github.com/ajstarks/svgo v0.0.0-20200320125537-f189e35d30ca/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
-github.com/alexflint/go-arg v1.5.1 h1:nBuWUCpuRy0snAG+uIJ6N0UvYxpxA0/ghA/AaHxlT8Y=
-github.com/alexflint/go-arg v1.5.1/go.mod h1:A7vTJzvjoaSTypg4biM5uYNTkJ27SkNTArtYXnlqVO8=
 github.com/alexflint/go-scalar v1.2.0 h1:WR7JPKkeNpnYIOfHRa7ivM21aWAdHD0gEWHCx+WQBRw=
 github.com/alexflint/go-scalar v1.2.0/go.mod h1:LoFvNMqS1CPrMVltza4LvnGKhaSpc3oyLEBUZVhhS2o=
 github.com/andybalholm/cascadia v1.1.0/go.mod h1:GsXiBklL0woXo1j/WYWtSYYC4ouU9PqHO0sqidkEA4Y=

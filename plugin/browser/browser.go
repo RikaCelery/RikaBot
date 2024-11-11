@@ -3,6 +3,8 @@ package browser
 
 import (
 	"fmt"
+	"strings"
+
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/alexflint/go-arg"
@@ -10,7 +12,6 @@ import (
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/extension/shell"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"strings"
 
 	"github.com/FloatTech/ZeroBot-Plugin/utils"
 )
