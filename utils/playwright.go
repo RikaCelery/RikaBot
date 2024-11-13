@@ -3,6 +3,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"github.com/FloatTech/floatbox/math"
 	"html/template"
 	"net/url"
 	"os"
@@ -459,12 +460,20 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 	if height < 20 {
 		height = 20
 	}
+	if before != nil {
+		before(page)
+	}
+
+	time.Sleep(sleep)
+
 	if *pwOption.FullPage {
+	redo:
 		err := page.SetViewportSize(width, height)
 		if err != nil {
 			log.Printf("Error setting viewport size: %v", err)
 			return nil, err
 		}
+		time.Sleep(200 * time.Millisecond)
 
 		evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
 		if err != nil {
@@ -472,7 +481,12 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 			return nil, err
 		}
 
+		if math.Abs(height-evaluated.(int)) > 10 {
+			height = evaluated.(int)
+			goto redo
+		}
 		height = evaluated.(int)
+
 	}
 
 	err := page.SetViewportSize(width, height)
@@ -482,12 +496,6 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 	}
 
 	WaitImage(page)
-
-	if before != nil {
-		before(page)
-	}
-
-	time.Sleep(sleep)
 
 	screenshot, err := page.Screenshot(pwOption)
 	if err != nil {
