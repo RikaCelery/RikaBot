@@ -460,12 +460,6 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 	if height < 20 {
 		height = 20
 	}
-	if before != nil {
-		before(page)
-	}
-
-	time.Sleep(sleep)
-
 	if *pwOption.FullPage {
 	redo:
 		err := page.SetViewportSize(width, height)
@@ -494,6 +488,11 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 		log.Printf("Error setting viewport size after evaluation: %v", err)
 		return nil, err
 	}
+	if before != nil {
+		before(page)
+	}
+
+	time.Sleep(sleep)
 
 	WaitImage(page)
 
