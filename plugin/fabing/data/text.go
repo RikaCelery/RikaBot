@@ -7,9 +7,7 @@ import (
 	"time"
 
 	binutils "github.com/FloatTech/floatbox/binary"
-	"github.com/FloatTech/floatbox/file"
 	sql "github.com/FloatTech/sqlite"
-	"github.com/FloatTech/zbputils/control"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,12 +20,8 @@ type text struct {
 
 // LoadText 加载小作文
 func LoadText(dbfile string) error {
-	_, err := file.GetLazyData(dbfile, control.Md5File, false)
 	db.DBPath = dbfile
-	if err != nil {
-		return err
-	}
-	err = db.Open(time.Hour)
+	err := db.Open(time.Hour)
 	if err != nil {
 		return err
 	}
@@ -39,7 +33,7 @@ func LoadText(dbfile string) error {
 	if err != nil {
 		return err
 	}
-	logrus.Printf("[Diana]读取%d条小作文", c)
+	logrus.Printf("[fabing]读取%d条小作文", c)
 	return nil
 }
 
