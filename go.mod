@@ -27,6 +27,7 @@ require (
 	github.com/fumiama/go-base16384 v1.7.0
 	github.com/fumiama/go-registry v0.2.7
 	github.com/fumiama/gotracemoe v0.0.3
+	github.com/fumiama/imgsz v0.0.4
 	github.com/fumiama/jieba v0.0.0-20221203025406-36c17a10b565
 	github.com/fumiama/slowdo v0.0.0-20241001074058-27c4fe5259a4
 	github.com/fumiama/terasu v0.0.0-20240710095334-67a8daa3a979
@@ -71,7 +72,6 @@ require (
 	github.com/faiface/beep v1.1.0 // indirect
 	github.com/fumiama/go-simple-protobuf v0.2.0 // indirect
 	github.com/fumiama/gofastTEA v0.0.10 // indirect
-	github.com/fumiama/imgsz v0.0.4 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
@@ -135,4 +135,4 @@ replace github.com/wdvxdr1123/ZeroBot => github.com/RikaCelery/ZeroBot v0.0.0-20
 
 //replace github.com/wdvxdr1123/ZeroBot => /Users/rikahil/GolandProjects/ZeroBot
 
-replace github.com/alexflint/go-arg => /Users/rikahil/clone/go-arg
+replace github.com/alexflint/go-arg => github.com/RikaCelery/go-arg v0.0.0-20241115060739-8efa97d36aad

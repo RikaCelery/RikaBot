@@ -18,6 +18,8 @@ github.com/RikaCelery/ZeroBot v0.0.0-20241111081320-1263d142aacc h1:59BA5aZJT5TQ
 github.com/RikaCelery/ZeroBot v0.0.0-20241111081320-1263d142aacc/go.mod h1:C86nQ0gIdAri4K2vg8IIQIslt08zzrKMcqYt8zhkx1M=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5 h1:Z5CBkgQG0hunEu69pY8iEGfVp+sx7okHh+8qUr4NB9A=
 github.com/RikaCelery/floatbox v0.0.0-20241008143524-ca0c2f6b68a5/go.mod h1:OzGLhvmtz1TKIdGaJDd8pQumvD36UqK+dWsiCISmzQQ=
+github.com/RikaCelery/go-arg v0.0.0-20241115060739-8efa97d36aad h1:7m/7Q5vSiWBHnylIdK8HEnxtXoEUB6P3KTGqZgM14Ho=
+github.com/RikaCelery/go-arg v0.0.0-20241115060739-8efa97d36aad/go.mod h1:A7vTJzvjoaSTypg4biM5uYNTkJ27SkNTArtYXnlqVO8=
 github.com/RikaCelery/rendercard v0.0.0-20241015040459-3099f1c5d604 h1:Ztxp7nJfra9VlrulVQDjC5hyieHvLYivXzLZA4kIAgc=
 github.com/RikaCelery/rendercard v0.0.0-20241015040459-3099f1c5d604/go.mod h1:Sbojcy1t3NfFz7/WicZRmR/uKFxNMYkKF8qHx69dxY0=
 github.com/RikaCelery/sqlite v0.0.0-20240823061305-68a59a0ec39b h1:01/jo3BW7wRunn0UMmg8hyzprr0UROZmnzzWti4eFAQ=
