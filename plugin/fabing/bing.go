@@ -42,9 +42,9 @@ var engine = control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 func remoteText(name string) (string, error) {
 	d, err := web.GetData(fmt.Sprintf(fabingURL, url.QueryEscape(name)))
 	if err != nil {
-		return "nil", err
+		return "", err
 	}
-	return gjson.Get(binary.BytesToString(d), "d").String(), nil
+	return gjson.Get(binary.BytesToString(d), "data").String(), nil
 }
 func init() {
 	getdb := fcext.DoOnceOnSuccess(func(ctx *zero.Ctx) bool {
@@ -65,15 +65,14 @@ func init() {
 	// 逆天
 	engine.OnCommandGroup([]string{"发病", "小作文"}, getdb).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-
 			name := ctx.NickName()
 			var text string
-			if utils.Probability(1) {
+			if utils.Probability(.7) || data.CountText() == 0 {
 				var err error
 				text, err = remoteText(name)
 				if err != nil {
-					log.Warningf("%+v", err)
-					text = data.RandText()
+					log.Errorln(err)
+					return
 				}
 			} else {
 				text = data.RandText()

@@ -37,6 +37,16 @@ func LoadText(dbfile string) error {
 	return nil
 }
 
+// CountText 发病文案数目
+func CountText() int {
+	l, err := db.Count("text")
+	if err != nil {
+		logrus.Warnln(err)
+		return 0
+	}
+	return l
+}
+
 // AddText 添加小作文
 func AddText(txt string) error {
 	s := md5.Sum(binutils.StringToBytes(txt))
