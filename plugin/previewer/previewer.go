@@ -210,7 +210,7 @@ builtin:
 			return bytes, err
 		},
 	}
-	mappers[regexp.MustCompile(`https://bbs\.nga\.cn/read\.php\?tid=(\w+)`)] = generator{
+	mappers[regexp.MustCompile(`https://(?:bbs\.nga\.cn|ngabbs\.com)/read\.php\?tid=(\w+)`)] = generator{
 		name: "public-nga-post",
 		gen: func(matched []string) ([]byte, error) {
 			fp := gofeed.NewParser()
