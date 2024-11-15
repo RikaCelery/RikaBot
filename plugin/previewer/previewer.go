@@ -33,11 +33,12 @@ var mappers map[*regexp.Regexp]generator
 var ErrBlocked = errors.New("该链接已被黑名单正则屏蔽")
 
 type ShotConfig struct {
-	Width  int     `json:"width"`
-	Height int     `json:"height"`
-	DPI    float64 `json:"dpi"`
-	Wait   int     `json:"wait"`
-	Css    string  `json:"css"`
+	Width   int     `json:"width"`
+	Height  int     `json:"height"`
+	DPI     float64 `json:"dpi"`
+	Wait    int     `json:"wait"`
+	Css     string  `json:"css"`
+	Quality int     `json:"quality"`
 }
 
 type Config struct {
@@ -98,6 +99,7 @@ func initMapper(e *control.Engine) {
 							return nil, ErrBlocked
 						}
 						opt := utils.DefaultPageOptions
+						opt.Quality = playwright.Int(v.ScreenShotConfig.Quality)
 						opt.Style = playwright.String(fmt.Sprintf("%s\n%s", *opt.Style, v.ScreenShotConfig.Css))
 						bytes, err := utils.ScreenShotPageURL(url, utils.ScreenShotPageOption{
 							Width:    v.ScreenShotConfig.Width,
