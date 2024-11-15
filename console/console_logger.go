@@ -38,7 +38,7 @@ func (f logFormat) Format(entry *logrus.Entry) ([]byte, error) {
 	buf.WriteString("] ")
 	buf.WriteString(entry.Message)
 	buf.WriteString(" \n")
-	if entry.Level > logrus.InfoLevel {
+	if entry.Level < logrus.InfoLevel && entry.Caller != nil {
 		buf.WriteString("    ")
 		buf.WriteString(fmt.Sprintf("[%s:%d](%s)", entry.Caller.File, entry.Caller.Line, entry.Caller.Function))
 		buf.WriteString(" \n")
@@ -70,6 +70,5 @@ func getLogLevelColorCode(level logrus.Level) string {
 	}
 }
 func init() {
-	logrus.SetFormatter(&logFormat{hasColor: true})
-
+	//logrus.SetFormatter(&logFormat{hasColor: true})
 }
