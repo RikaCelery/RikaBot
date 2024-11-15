@@ -7,49 +7,90 @@ type changeLogStruct struct {
 
 var changeLog = []changeLogStruct{
 	{
+		Version: "2024-11-15",
+		ChangeLog: `feat(previewer): add quality configuration
+feat: nick configurable
+fix(playwright): 修复等待和调整页面高度顺序 
+feat(previewer): 支持从配置文件加载 
+fix(playwright): 修复全屏截图不能正确计算某些页面的高度 
+fix(rss): template read error 
+feat(previewer): twitter preview 
+feat(previewer): gen previews 
+change(chatcount): no 水群提醒 
+feat(browser): shell arg parse 
+fix(playwright): fix template function bug 
+change(browser): require admin permission 
+fix(slash): wrong regex 
+添加撤回插件 
+fix(browser): panic error fix(browser): closed context error 
+fix(github): do not response topics 
+fix(petpet): no panic on init failed 
+fix(quote): pattern matcher change(quote): remove auto lookup replied message 
+feat(playwright): no cache for qlogo.cn 
+feat(petpet): 新的摸摸头插件（petpet）
+feat(utils)file r/w shortcuts 
+feat(qqwife): 添加好感度提升途径 (#1049) 
+fix: 进行1e5次钓鱼不出下界合金竿的问题 (#1051) 
+fix(niuniu): 一些小问题 (#1043) 
+feat(niuniu): 寫真으로 順位 表示 (#1024) 
+feat(spider): file downloader 
+refactor(spider): 优化代码结构 
+fix(slash): 不响应@xxx /xxx（避免机器人误触） 
+feat(emojimix): 对于某些表情自动替换为相近的有动画的表情 
+feat(slash): 响应诸如 “/打”、“/敲” “/prpr” 之类的消息 
+fix(huntercode): /世界 /崛起 没反应 
+fix(emojimix):表情混合修改消息导致后续插件无法工作 
+fix real-cugan 
+fix:修复猜单词插件最后一轮无法正常发送的错误 (#1039) 
+fix:修复出售限制未生效的问题 (#1038) 
+help(emozi): 增加注册提示 
+feat: add plugin emozi(抽象转写) & remove vitsnyaru 
+feat(manager): no forward on single slow 
+fix(playwright): 修复滑动错误 fix(playwright): 修复代理问题 feat(playwright): 增加预处理js/CSS用于移除无用元素 
+fix: 重写交易鱼类上限逻辑 (#1002) (#1003) 
+fix(spider): 不对5张一下图片或视频的转发聊天响应，避免扰民`,
+	},
+	{
 		Version: "2024-10-09",
 		ChangeLog: `feat(niuniu):在冷却还剩15s以下时不再提醒用户 feat(niuniu):多条打脚/jj/注册注销牛牛消息会合起来发(60s一次) change(niuniu):打胶5分钟CD，jj10分钟CD RikaCelery A minute ago
 优化代码结构 RikaCelery 56 minutes ago
-playwright auto wait all image loaded RikaCelery Today 00:41
-rm docker actions RikaCelery Yesterday 16:08
-change(dish): 怎么做和烹饪改为命令式(加{prefix}) change(driftbottle): 漂流瓶相关改为命令式(加{prefix}) RikaCelery Yesterday 15:57
-fix lint error RikaCelery Yesterday 15:41
-fix wrong merge RikaCelery Yesterday 15:12
-更新依赖 RikaCelery Yesterday 15:10
-Merge remote-tracking branch 'upstream/master' RikaCelery Yesterday 15:06
-更新依赖 RikaCelery Yesterday 15:00
-fix(github): 修复正则，移除无用代码 RikaCelery Yesterday 14:59
-fix(niuniu): 修复类型转换错误 RikaCelery Yesterday 14:59
-fix(github): 修正github链接识别正则 RikaCelery Yesterday 12:36
-更新依赖 RikaCelery Yesterday 12:24
-feat(github): 自动监听并渲染发送的GitHub链接 RikaCelery Yesterday 12:24
-公开playwrightOptions RikaCelery Yesterday 12:24
-fix(emojimix): 仅在混合时发送不支持提醒 RikaCelery Yesterday 12:23
-fix(niuniu): api update RikaCelery Yesterday 12:22
-fix(dish): 修复客官名显示为菜名的问题 (#1000) 昔音幻离* Yesterday 01:45
-fix: 牛牛逻辑问题 (#996) 宇~* 2024/10/9 20:59
-fix(emojimix): 修复在不支持的混合时报错 RikaCelery 2024/10/9 16:34
-feat: 集成playwright-go环境 feat(browser): 截图插件(默认禁用) RikaCelery 2024/10/9 16:08
-fix(niuniu): 牛牛插件无法jj fix(niuniu): 牛牛插件无法识别jj道具 RikaCelery 2024/10/9 09:31
-replace action email RikaCelery 2024/10/9 01:09
-remove webctrl RikaCelery 2024/10/9 01:03
-update depend RikaCelery 2024/10/9 00:41`,
+playwright auto wait all image loaded 
+rm docker actions 
+change(dish): 怎么做和烹饪改为命令式(加{prefix}) change(driftbottle): 漂流瓶相关改为命令式(加{prefix}) 
+fix lint error 
+fix wrong merge 
+更新依赖 
+更新依赖 
+fix(github): 修复正则，移除无用代码 
+fix(niuniu): 修复类型转换错误 
+fix(github): 修正github链接识别正则 
+更新依赖 
+feat(github): 自动监听并渲染发送的GitHub链接 
+公开playwrightOptions 
+fix(emojimix): 仅在混合时发送不支持提醒 
+fix(niuniu): api update 
+fix(dish): 修复客官名显示为菜名的问题 (#1000) 
+fix: 牛牛逻辑问题 (#996) 
+fix(emojimix): 修复在不支持的混合时报错 
+feat: 集成playwright-go环境 feat(browser): 截图插件(默认禁用) 
+fix(niuniu): 牛牛插件无法jj fix(niuniu): 牛牛插件无法识别jj道具 
+replace action email 
+remove webctrl 
+update depend `,
 	},
 	{
 		Version: "2024-10-08",
 		ChangeLog: `
 feat(emojimix): 增加 {prefix}表情 获取表情动图
-chore(lint): lint no error && enable lint RikaCelery 2024/10/8 23:12
-fix(emojimix): 更改错误消息 RikaCelery 2024/10/8 22:39
-Create dependabot.yml RikaCelery* 2024/10/9 00:41
-disable lint and docker image RikaCelery 2024/10/8 16:25
-v2024-10-08 RikaCelery 2024/10/8 16:21
-fix(emojimix): 修复手机没动画 webp => gif RikaCelery 2024/10/8 10:08
-fix(emojimix): fix NPE RikaCelery 2024/10/8 09:43
-fix(emojimix): 表情混合只识别仅包含2个表情的消息 RikaCelery 2024/10/8 09:30
-chore: update dependency RikaCelery 2024/10/8 09:24
-fix(emojimix): 表情混合只识别仅包含2个表情的消息 feat(emojimix): 表情混合增加发送动图表情功能 RikaCelery 2024/10/8 09:01
-fix(emojimix): 表情混合只识别仅包含2个表情的消息 RikaCelery 2024/10/8 08:48
+fix(emojimix): 更改错误消息 
+Create dependabot.yml 
+disable lint and docker image 
+v2024-10-08 
+fix(emojimix): 修复手机没动画 webp => gif 
+fix(emojimix): fix NPE 
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 feat(emojimix): 表情混合增加发送动图表情功能 
+fix(emojimix): 表情混合只识别仅包含2个表情的消息 
 `,
 	},
 	{
@@ -87,7 +128,6 @@ fix(qqwife): 当小三指令无反应
 
 refactor(qqwife): 使用新的消息解析方式
 
-chore(main): 优化log格式
 `,
 	},
 	{
