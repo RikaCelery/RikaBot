@@ -41,7 +41,7 @@ func init() {
 		dir, _ := os.ReadDir(e.DataFolder())
 		for _, entry := range dir {
 			if strings.HasSuffix(entry.Name(), ".mama") {
-				id, err := strconv.ParseInt(strings.ReplaceAll(entry.Name(), ".mama", ""), 64, -1)
+				id, err := strconv.ParseInt(strings.ReplaceAll(entry.Name(), ".mama", ""), 10, 64)
 				if err != nil {
 					log.Errorln(err)
 					continue
