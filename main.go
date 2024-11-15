@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"regexp"
 
 	"github.com/FloatTech/floatbox/math"
 	ctrl "github.com/FloatTech/zbpctrl"
@@ -332,13 +333,24 @@ func main() {
 	// 帮助
 	zero.OnFullMatchGroup([]string{"help", "/help", ".help", "菜单", "帮助"}, zero.OnlyToMe).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
-			ctx.SendChain(message.Text("Rika: v" + changeLog[0].Version + `
-发送 " /更新日志 " 查看 功能变化
-发送 " @机器人 /服务列表 " 查看全部功能
-发送 " @机器人 /用法 + 功能第一行英文名称 "查看功能用法
+			r := regexp.MustCompile("(\\S)(\\S*)")
+			m := r.FindStringSubmatch(zero.BotConfig.NickName[0])
+			var nick string
+			if len(m) == 3 {
+				nick = strings.ToUpper(m[1]) + m[2]
+			} else {
+				nick = zero.BotConfig.NickName[0]
+			}
+			tailing := strings.ReplaceAll(`
+发送 " {prefix}更新日志 " 查看 功能变化
+发送 " {nick}{prefix}服务列表 " 查看全部功能(前面为红色的是被禁用的功能)
+发送 " {nick}{prefix}用法 空格 功能第一行英文名称 "查看功能用法
+	栗子：  {nick}{prefix}用法 nbnhhsh
 主要功能文档：kdocs.cn/l/ctRhISA7rOcq
 ============================================
-感谢: github.com/FloatTech/ZeroBot-Plugin`))
+特别感谢: github.com/FloatTech/ZeroBot-Plugin`, "{nick}", zero.BotConfig.NickName[0])
+			tailing = strings.ReplaceAll(tailing, "{prefix}", zero.BotConfig.CommandPrefix)
+			ctx.SendChain(message.Text(nick + ": v" + changeLog[0].Version + tailing))
 		})
 	// zero.OnFullMatch("查看zbp公告", zero.OnlyToMe, zero.AdminPermission).SetBlock(true).
 	//	Handle(func(ctx *zero.Ctx) {
