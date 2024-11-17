@@ -4,7 +4,11 @@ package emojimix
 import (
 	"errors"
 	"fmt"
+	"github.com/FloatTech/ZeroBot-Plugin/utils"
+	log "github.com/sirupsen/logrus"
 	"net/http"
+	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -29,8 +33,9 @@ func init() {
 	mixLimiter := rate.NewManager[string](time.Hour*1, 1)
 	mixCommandLimiter := rate.NewManager[string](time.Second*20, 2)
 	e := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
-		DisableOnDefault: false,
-		Brief:            "合成emoji",
+		DisableOnDefault:  false,
+		Brief:             "合成emoji",
+		PrivateDataFolder: "emojimix",
 		Help: `- {prefix}表情1表情2
 - 表情1表情2
 - {prefix}表情1
@@ -86,6 +91,17 @@ func init() {
 		Handle(func(ctx *zero.Ctx) {
 			r := ctx.State["emojimix"].([]string)
 			slug, _ := emojiToHashSlug(r[0])
+			if local := path.Join(e.DataFolder(), slug+".gif"); utils.Exists(local) {
+				bytes, err := os.ReadFile(local)
+				if err != nil {
+					ctx.Send(fmt.Sprintf("ERROR: %v", err))
+					return
+				}
+				ctx.Send(message.ImageBytes(bytes))
+				return
+			} else {
+				log.Infof("local animated sticker not found (%s)", local)
+			}
 			u1 := emojiHashToWebpURL(slug)
 			resp1, err := http.Head(u1)
 			if err == nil {
