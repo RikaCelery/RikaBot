@@ -457,39 +457,47 @@ func ScreenShotElementTemplate(name string, selector string, data any, option ..
 
 func screenShotPage(page playwright.Page, width, height int, sleep time.Duration, before func(page playwright.Page), pwOption playwright.PageScreenshotOptions) ([]byte, error) {
 	Clean(page)
+	WaitImage(page)
+	if before != nil {
+		before(page)
+	}
 	if height < 20 {
 		height = 20
 	}
 	if *pwOption.FullPage {
+		var count = 1
 	redo:
 		err := page.SetViewportSize(width, height)
 		if err != nil {
-			log.Printf("Error setting viewport size: %v", err)
+			log.Errorf("Error setting viewport size: %v", err)
 			return nil, err
 		}
 		time.Sleep(200 * time.Millisecond)
 
 		evaluated, err := page.Evaluate(`document.documentElement.scrollHeight`)
 		if err != nil {
-			log.Printf("Error evaluating document scroll height: %v", err)
+			log.Errorf("Error evaluating document scroll height: %v", err)
 			return nil, err
 		}
 
-		if math.Abs(height-evaluated.(int)) > 10 {
+		if math.Abs(height-evaluated.(int)) > 10 && count > 0 {
 			height = evaluated.(int)
+			count--
 			goto redo
 		}
 		height = evaluated.(int)
 
 	}
-
+	var maxHeight = 5_0000
+	if height > maxHeight {
+		log.Infof("[playwright] 视窗高度(%d)超出最大限制(%d)", height, maxHeight)
+		height = maxHeight
+	}
+	log.Infof("[playwright] 重设视窗大小%dx%d", width, height)
 	err := page.SetViewportSize(width, height)
 	if err != nil {
 		log.Printf("Error setting viewport size after evaluation: %v", err)
 		return nil, err
-	}
-	if before != nil {
-		before(page)
 	}
 
 	time.Sleep(sleep)
@@ -501,6 +509,10 @@ func screenShotPage(page playwright.Page, width, height int, sleep time.Duration
 		log.Printf("Error taking screenshot: %v", err)
 		return nil, err
 	}
+	if len(screenshot) == 0 {
+		return nil, errors.New("empty screenshot")
+	}
+	log.Infof("[playwright] 全屏截图结果%v,err:%v", len(screenshot), err)
 
 	return screenshot, nil
 }
@@ -509,7 +521,10 @@ func screenShotElement(page playwright.Page, selector string, width, height int,
 	logger := log.New()
 
 	Clean(page)
-
+	WaitImage(page)
+	if before != nil {
+		before(page)
+	}
 	if height == 0 {
 		height = 100
 	}
@@ -535,10 +550,6 @@ func screenShotElement(page playwright.Page, selector string, width, height int,
 	}
 
 	WaitImage(page)
-
-	if before != nil {
-		before(page)
-	}
 
 	time.Sleep(sleep)
 
