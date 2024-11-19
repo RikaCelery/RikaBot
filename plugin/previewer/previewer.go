@@ -2,6 +2,7 @@
 package previewer
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 	"github.com/FloatTech/floatbox/web"
 	"github.com/mmcdole/gofeed"
 	"github.com/playwright-community/playwright-go"
+	"github.com/wdvxdr1123/ZeroBot/message"
+	"image"
+	_ "image/gif"
+	_ "image/png"
 	"os"
 	"path"
 	"regexp"
@@ -20,7 +25,6 @@ import (
 	"github.com/FloatTech/zbputils/control"
 	log "github.com/sirupsen/logrus"
 	zero "github.com/wdvxdr1123/ZeroBot"
-	"github.com/wdvxdr1123/ZeroBot/message"
 )
 
 type generator struct {
@@ -37,6 +41,7 @@ type ShotConfig struct {
 	Height  int     `json:"height"`
 	DPI     float64 `json:"dpi"`
 	Wait    int     `json:"wait"`
+	JS      string  `json:"js"`
 	Css     string  `json:"css"`
 	Quality int     `json:"quality"`
 }
@@ -66,7 +71,7 @@ func initMapper(e *control.Engine) {
 			goto builtin
 		}
 		for _, v := range configs {
-			log.Infoln("[previewer] 加载预览模板:", v.Name, v.Type)
+			log.Infoln("[previewer] 加载预览模板:", v.Name, v.Type, v.ScreenShotConfig.Width)
 			switch v.Type {
 			case "SCREEN_SHOT":
 				var replacer func(string) string
@@ -102,10 +107,16 @@ func initMapper(e *control.Engine) {
 						opt.Quality = playwright.Int(v.ScreenShotConfig.Quality)
 						opt.Style = playwright.String(fmt.Sprintf("%s\n%s", *opt.Style, v.ScreenShotConfig.Css))
 						bytes, err := utils.ScreenShotPageURL(url, utils.ScreenShotPageOption{
-							Width:    v.ScreenShotConfig.Width,
-							Height:   v.ScreenShotConfig.Height,
-							DPI:      v.ScreenShotConfig.DPI,
-							Sleep:    time.Duration(v.ScreenShotConfig.Wait) * time.Second,
+							Width:  v.ScreenShotConfig.Width,
+							Height: v.ScreenShotConfig.Height,
+							DPI:    v.ScreenShotConfig.DPI,
+							Sleep:  time.Duration(v.ScreenShotConfig.Wait) * time.Second,
+							Before: func(page playwright.Page) {
+								_, err := page.Evaluate(v.ScreenShotConfig.JS, v)
+								if err != nil {
+									log.Warningf("[previewer] JS error %v", err)
+								}
+							},
 							PwOption: opt,
 						})
 						if err != nil {
@@ -129,49 +140,7 @@ builtin:
 			}
 			bytes, err := utils.ScreenShotPageTemplate("twitter.gohtml", feed, utils.ScreenShotPageOption{
 				Width:    500,
-				Height:   0,
-				DPI:      0,
-				Before:   nil,
 				PwOption: utils.DefaultPageOptions,
-				Sleep:    0,
-			})
-			return bytes, err
-		},
-	}
-	mappers[regexp.MustCompile(`https://www\.zhihu\.com/question/(\d+)/answer/(\d+)`)] = generator{
-		name: "public-zhihu-answer",
-		gen: func(matched []string) ([]byte, error) {
-			fp := gofeed.NewParser()
-			feed, err := fp.ParseURL(fmt.Sprintf("http://localhost:1200/zhihu/question/%s/answer/%s", matched[1], matched[2]))
-			if err != nil {
-				return nil, err
-			}
-			bytes, err := utils.ScreenShotPageTemplate("zhihu-answer.html", feed, utils.ScreenShotPageOption{
-				Width:    500,
-				Height:   0,
-				DPI:      0,
-				Before:   nil,
-				PwOption: utils.DefaultPageOptions,
-				Sleep:    0,
-			})
-			return bytes, err
-		},
-	}
-	mappers[regexp.MustCompile(`https://www\.zhihu\.com/question/(\d+)[^/]*`)] = generator{
-		name: "public-zhihu-question",
-		gen: func(matched []string) ([]byte, error) {
-			fp := gofeed.NewParser()
-			feed, err := fp.ParseURL(fmt.Sprintf("http://localhost:1200/zhihu/single-question/%s", matched[1]))
-			if err != nil {
-				return nil, err
-			}
-			bytes, err := utils.ScreenShotPageTemplate("zhihu-question.html", feed, utils.ScreenShotPageOption{
-				Width:    500,
-				Height:   0,
-				DPI:      0,
-				Before:   nil,
-				PwOption: utils.DefaultPageOptions,
-				Sleep:    0,
 			})
 			return bytes, err
 		},
@@ -201,11 +170,7 @@ builtin:
 			feed.Gender = strings.ToLower(feed.Gender)
 			bytes, err := utils.ScreenShotPageTemplate("treehole.html", feed, utils.ScreenShotPageOption{
 				Width:    500,
-				Height:   0,
-				DPI:      0,
-				Before:   nil,
 				PwOption: utils.DefaultPageOptions,
-				Sleep:    0,
 			})
 			return bytes, err
 		},
@@ -218,15 +183,12 @@ builtin:
 			if err != nil {
 				return nil, err
 			}
-			bytes, err := utils.ScreenShotPageTemplate("nga.html", feed, utils.ScreenShotPageOption{
-				Width:    900,
-				Height:   0,
-				DPI:      0,
-				Before:   nil,
+			imageBytes, err := utils.ScreenShotPageTemplate("nga.html", feed, utils.ScreenShotPageOption{
+				Width:    600,
+				DPI:      1,
 				PwOption: utils.DefaultPageOptions,
-				Sleep:    0,
 			})
-			return bytes, err
+			return imageBytes, err
 		},
 	}
 
@@ -268,11 +230,23 @@ X(Twitter): 用户的推文（回复的评论不算）
 		}
 		return zero.SuperUserPermission(ctx)
 	}).Handle(func(ctx *zero.Ctx) {
+		previewerName := ctx.State["name"].(string)
 		matched := ctx.State["matched"].([]string)
 		generator := ctx.State["generator"].(func(matched []string) ([]byte, error))
 		b, err := generator(matched)
 		if err != nil {
 			log.Error(err)
+			return
+		}
+
+		_, _, err = image.Decode(bytes.NewReader(b))
+		if err != nil {
+			os.WriteFile(fmt.Sprintf("error_%d.jpg", time.Now().Minute()), b, 0644)
+			log.Error(err)
+			return
+		}
+		if len(b) == 0 {
+			log.Errorf("[previewer]<%s> 截图结果为空", previewerName)
 			return
 		}
 		ctx.Send(message.ImageBytes(b))
