@@ -737,6 +737,7 @@ func downloadGroup(ctx *zero.Ctx, gp int64) {
 			resp, err := http.Post("http://127.0.0.1:5637/download", "application/json", strings.NewReader(string(j)))
 			if err != nil {
 				logrus.Infoln(err.Error())
+				continue
 			}
 			resp.Body.Close()
 		}
