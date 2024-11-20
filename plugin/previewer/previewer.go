@@ -70,7 +70,8 @@ func initMapper(e *control.Engine) {
 		if err != nil {
 			goto builtin
 		}
-		for _, v := range configs {
+		for _, v0 := range configs {
+			v := v0
 			log.Infoln("[previewer] 加载预览模板:", v.Name, v.Type, v.ScreenShotConfig.Width)
 			switch v.Type {
 			case "SCREEN_SHOT":
@@ -175,7 +176,7 @@ builtin:
 			return bytes, err
 		},
 	}
-	mappers[regexp.MustCompile(`https://(?:bbs\.nga\.cn|ngabbs\.com)/read\.php\?tid=(\w+)`)] = generator{
+	mappers[regexp.MustCompile(`https://(?:bbs\.nga\.cn|ngabbs\.com|nga\.178\.com)/read\.php\?tid=(\w+)`)] = generator{
 		name: "public-nga-post",
 		gen: func(matched []string) ([]byte, error) {
 			fp := gofeed.NewParser()
@@ -214,9 +215,7 @@ X(Twitter): 用户的推文（回复的评论不算）
 	e.OnMessage(func(ctx *zero.Ctx) bool {
 		rawMessage := ctx.Event.RawMessage
 		for r, v := range mappers {
-			//fmt.Printf("%s_1", v.name)
 			if r.MatchString(rawMessage) {
-				//fmt.Printf("%s", v.name)
 				ctx.State["matched"] = r.FindStringSubmatch(rawMessage)
 				ctx.State["name"] = v.name
 				ctx.State["generator"] = v.gen
