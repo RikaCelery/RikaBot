@@ -25,7 +25,6 @@ func init() {
 		PrivateDataFolder: "emozi",
 	})
 	usr := emozi.Anonymous()
-	data, err := os.ReadFile(en.DataFolder() + "user.txt")
 	refresh := func() {
 		go func() {
 			t := time.NewTicker(time.Hour)
@@ -42,20 +41,23 @@ func init() {
 		}()
 	}
 	refresher := sync.Once{}
-	if err == nil {
-		arr := strings.Split(string(data), "\n")
-		if len(arr) >= 2 {
-			usr = emozi.NewUser(arr[0], arr[1])
-			err = usr.Login()
-			if err != nil {
-				logrus.Infoln("[emozi]", "以", arr[0], "身份登录失败:", err)
-				usr = emozi.Anonymous()
-			} else {
-				logrus.Infoln("[emozi]", "以", arr[0], "身份登录成功")
-				refresher.Do(refresh)
+	go func() {
+		data, err := os.ReadFile(en.DataFolder() + "user.txt")
+		if err == nil {
+			arr := strings.Split(string(data), "\n")
+			if len(arr) >= 2 {
+				usr = emozi.NewUser(arr[0], arr[1])
+				err = usr.Login()
+				if err != nil {
+					logrus.Infoln("[emozi]", "以", arr[0], "身份登录失败:", err)
+					usr = emozi.Anonymous()
+				} else {
+					logrus.Infoln("[emozi]", "以", arr[0], "身份登录成功")
+					refresher.Do(refresh)
+				}
 			}
 		}
-	}
+	}()
 
 	en.OnPrefix("抽象转写").Limit(ctxext.LimitByUser).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		txt := strings.TrimSpace(ctx.State["args"].(string))
