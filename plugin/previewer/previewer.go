@@ -253,7 +253,7 @@ X(Twitter): 用户的推文（回复的评论不算）
 		if zero.SuperUserPermission(ctx) {
 			return true
 		}
-		if ctx.State["check"] == nil {
+		if ctx.State["check"] != nil {
 			return ctx.State["check"].(zero.Rule)(ctx)
 		}
 		return false
