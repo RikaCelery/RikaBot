@@ -236,6 +236,9 @@ X(Twitter): 用户的推文（回复的评论不算）
 	})
 	e.OnMessage(func(ctx *zero.Ctx) bool {
 		rawMessage := ctx.Event.RawMessage
+		if ctx.Event.Message[0].Type == "json" {
+			rawMessage = ctx.Event.Message[0].Data["data"]
+		}
 		for r, v := range mappers {
 			if r.MatchString(rawMessage) {
 				ctx.State["matched"] = r.FindStringSubmatch(rawMessage)
