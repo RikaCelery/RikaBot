@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/FloatTech/AnimeAPI/pixiv"
 
@@ -33,6 +34,39 @@ var (
 	saucenaocli *gophersauce.Client
 )
 
+// MustProvidePicture 消息不存在图片阻塞120秒至有图片，超时返回 false
+func MustProvidePicture(ctx *zero.Ctx) bool {
+	if ctx.Event.Message[0].Type == "reply" {
+		msg := ctx.GetMessage(ctx.Event.Message[0].Data["id"])
+		var urls = []string{}
+		for _, elem := range msg.Elements {
+			if elem.Type == "image" {
+				if elem.Data["url"] != "" {
+					urls = append(urls, elem.Data["url"])
+				}
+			}
+		}
+		if len(urls) > 0 {
+			ctx.State["image_url"] = urls
+			return true
+		}
+
+	}
+	if zero.HasPicture(ctx) {
+		return true
+	}
+	// 没有图片就索取
+	ctx.SendChain(message.Text("请发送一张图片"))
+	next := zero.NewFutureEvent("message", 999, true, ctx.CheckSession(), zero.HasPicture).Next()
+	select {
+	case <-time.After(time.Second * 120):
+		return false
+	case newCtx := <-next:
+		ctx.State["image_url"] = newCtx.State["image_url"]
+		ctx.Event.MessageID = newCtx.Event.MessageID
+		return true
+	}
+}
 func init() { // 插件主体
 	engine := control.AutoRegister(&ctrl.Options[*zero.Ctx]{
 		DisableOnDefault: false,
@@ -61,7 +95,7 @@ func init() { // 插件主体
 		}
 	}
 	// 根据 PID 搜图
-	engine.OnRegex(`^搜图(\d+)$`).SetBlock(true).
+	engine.OnRegex(`^pixiv\s*(\d+)$`).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			id, _ := strconv.ParseInt(ctx.State["regex_matched"].([]string)[1], 10, 64)
 			ctx.SendChain(message.Text("少女祈祷中......"))
@@ -106,7 +140,7 @@ func init() { // 插件主体
 			}
 		})
 	// 以图搜图
-	engine.OnPrefixGroup([]string{"以图搜图", "搜索图片", "以图识图", "source", "src?", "src？"}, zero.MustProvidePicture).SetBlock(true).
+	engine.OnMessage(zero.NewPattern(nil).Reply().SetOptional().Text(`^以图搜图|搜索图片|搜图|识图|以图识图|source|src[?？]`).AsRule(), MustProvidePicture).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			// 开始搜索图片
 			pics, ok := ctx.State["image_url"].([]string)
