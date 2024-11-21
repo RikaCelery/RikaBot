@@ -28,8 +28,9 @@ import (
 )
 
 type generator struct {
-	name string
-	gen  func(matched []string) ([]byte, error)
+	name  string
+	check zero.Rule
+	gen   func(matched []string) ([]byte, error)
 }
 
 var mappers map[*regexp.Regexp]generator
@@ -56,6 +57,11 @@ type Config struct {
 	UrlReplacement      string     `json:"url_replacement"`
 	ErrorTemplate       string     `json:"error_template"`
 	ScreenShotConfig    ShotConfig `json:"config"`
+	AllowGroup          []int64    `json:"allow_group"`
+}
+
+func checkAllow(group int64, allowed []int64) bool {
+	return utils.Contains(allowed, group)
 }
 
 func initMapper(e *control.Engine) {
@@ -94,8 +100,24 @@ func initMapper(e *control.Engine) {
 						continue
 					}
 				}
+				var check zero.Rule
+				if v.AllowGroup != nil && len(v.AllowGroup) > 0 {
+					var tmp = make([]int64, 0, len(v.AllowGroup))
+					tmp = append(tmp, v.AllowGroup...)
+					check = func(ctx *zero.Ctx) bool {
+						if zero.SuperUserPermission(ctx) {
+							return true
+						}
+						id := ctx.Event.GroupID
+						if id == 0 {
+							id = ctx.Event.UserID
+						}
+						return checkAllow(id, tmp)
+					}
+				}
 				mappers[regexp.MustCompile(v.Regex)] = generator{
-					name: v.Name,
+					name:  v.Name,
+					check: check,
 					gen: func(matched []string) ([]byte, error) {
 						var url = matched[v.MatchedGroup]
 						if replacer != nil {
@@ -219,6 +241,7 @@ X(Twitter): 用户的推文（回复的评论不算）
 				ctx.State["matched"] = r.FindStringSubmatch(rawMessage)
 				ctx.State["name"] = v.name
 				ctx.State["generator"] = v.gen
+				ctx.State["check"] = v.check
 				return true
 			}
 		}
@@ -227,7 +250,13 @@ X(Twitter): 用户的推文（回复的评论不算）
 		if strings.HasPrefix(ctx.State["name"].(string), "public-") {
 			return true
 		}
-		return zero.SuperUserPermission(ctx)
+		if zero.SuperUserPermission(ctx) {
+			return true
+		}
+		if ctx.State["check"] == nil {
+			return ctx.State["check"].(zero.Rule)(ctx)
+		}
+		return false
 	}).Handle(func(ctx *zero.Ctx) {
 		previewerName := ctx.State["name"].(string)
 		matched := ctx.State["matched"].([]string)
