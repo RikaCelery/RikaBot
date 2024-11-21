@@ -140,7 +140,7 @@ func init() { // 插件主体
 			}
 		})
 	// 以图搜图
-	engine.OnMessage(zero.NewPattern(nil).Reply().SetOptional().Text(`^以图搜图|搜索图片|搜图|识图|以图识图|source|src[?？]`).AsRule(), MustProvidePicture).SetBlock(true).
+	engine.OnMessage(zero.NewPattern(nil).Reply().SetOptional().Text(`^(以图搜图|搜索图片|搜图|识图|以图识图|source|src[?？])`).AsRule(), MustProvidePicture).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			// 开始搜索图片
 			pics, ok := ctx.State["image_url"].([]string)
